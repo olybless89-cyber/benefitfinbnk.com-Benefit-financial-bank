@@ -1573,26 +1573,17 @@ function esc(s) {
 init();
 </script>
 
-<!-- ── Live Chat Widget ───────────────────────────────────────────────── -->
-<script>
-  // Config is set after userId is known (init() populates userId & userProfile)
-  (function waitForUser() {
-    const interval = setInterval(function () {
-      if (typeof userId !== 'undefined' && userId) {
-        clearInterval(interval);
-        window.BFBChat = {
-          userId:    userId,
-          userEmail: userProfile && userProfile.email ? userProfile.email : '',
-          userName:  userProfile && userProfile.full_name ? userProfile.full_name : ''
-        };
-        var s = document.createElement('script');
-        s.src = '/chat-widget.js';
-        document.body.appendChild(s);
-      }
-    }, 300);
-    // Timeout after 8s — load widget anyway (guest mode)
-    setTimeout(function () { clearInterval(interval); }, 8000);
-  })();
+<!-- Smartsupp Live Chat script -->
+<script type="text/javascript">
+var _smartsupp = _smartsupp || {};
+_smartsupp.key = '1e140e915c93dabc65cd84b616b9fc1242734c61';
+window.smartsupp||(function(d) {
+  var s,c,o=smartsupp=function(){ o._.push(arguments)};o._=[];
+  s=d.getElementsByTagName('script')[0];c=d.createElement('script');
+  c.type='text/javascript';c.charset='utf-8';c.async=true;
+  c.src='https://www.smartsuppchat.com/loader.js?';s.parentNode.insertBefore(c,s);
+})(document);
 </script>
+<noscript>Powered by <a href="https://www.smartsupp.com" target="_blank">Smartsupp</a></noscript>
 </body>
 </html>
