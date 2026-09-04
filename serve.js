@@ -32,8 +32,8 @@ const LOCAL_ANON_KEY = process.env.SUPABASE_ANON_KEY
 
 // The hosted project values embedded in the committed HTML. We replace these
 // at serve time so the browser talks to the /supa proxy instead.
-const HOSTED_URL = 'https://<PROJECT_REF>.supabase.co';
-const HOSTED_KEY = '<SUPA_ANON_KEY>';
+const HOSTED_URL = 'https://hmmtcnklfpqjoumwdcoj.supabase.co';
+const HOSTED_KEY = 'sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',

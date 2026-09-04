@@ -26,6 +26,7 @@ jobs:
           # The committed runtime files carry a <PROJECT_REF> placeholder, so
           # this actually resolves to the literal placeholder when unconfigured.
           # Set SUPABASE_PROJECT_REF secret to the SAME ref you substitute into
+          EXPECTED="hmmtcnklfpqjoumwdcoj"
           # the pages (sed -i 's|<PROJECT_REF>|yourref|g' public/*.html public/chat-widget.js).
           if [ -n "$SUPABASE_PROJECT_REF" ] && [ "$SUPABASE_PROJECT_REF" != "$EXPECTED" ]; then
             echo "❌ SUPABASE_PROJECT_REF=$SUPABASE_PROJECT_REF but the site embeds project '$EXPECTED'."
@@ -88,6 +89,7 @@ jobs:
           fi
           # The committed runtime files carry a <SUPA_ANON_KEY> placeholder, so
           # this resolves to the literal placeholder when unconfigured — the guard
+          ANON_KEY="sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C"
           # above plus the expected-validation-error check still prove lifecycle.
           # Call with the REAL param names (p_name/p_email/p_message) and empty
           # values: the function must reject with its 22023 validation error,

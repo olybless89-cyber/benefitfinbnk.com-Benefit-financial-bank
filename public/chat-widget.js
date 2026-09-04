@@ -17,8 +17,8 @@
 (function () {
   'use strict';
 
-  const SUPA_URL = 'https://<PROJECT_REF>.supabase.co';
-  const SUPA_KEY = '<SUPA_ANON_KEY>';
+  const SUPA_URL = 'https://hmmtcnklfpqjoumwdcoj.supabase.co';
+  const SUPA_KEY = 'sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C';
   const SUPPORT_EMAIL = 'support@benefitfinbnk.com';
 
   // ── Helpers ───────────────────────────────────────────────────────────────

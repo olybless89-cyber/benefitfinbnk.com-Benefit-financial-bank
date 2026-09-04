@@ -103,8 +103,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-var SUPA_URL = "https://<PROJECT_REF>.supabase.co";
-var SUPA_KEY = "<SUPA_ANON_KEY>";
+var SUPA_URL = "https://hmmtcnklfpqjoumwdcoj.supabase.co";
+var SUPA_KEY = "sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C";
 var sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 var overlay = document.getElementById("overlay");
@@ -144,9 +144,9 @@ function doRegister(e) {
   var fullName = first + " " + last;
 
   // Use Edge Function to create user (bypasses Supabase email rate limit)
-  fetch("https://<PROJECT_REF>.supabase.co/functions/v1/register", {
+  fetch("https://hmmtcnklfpqjoumwdcoj.supabase.co/functions/v1/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer <SUPA_EDGE_ANON_KEY>", "apikey": "<SUPA_EDGE_ANON_KEY>" },
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C", "apikey": "sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C" },
     body: JSON.stringify({ email: email, password: pw, full_name: fullName })
   })
   .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })

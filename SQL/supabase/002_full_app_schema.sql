@@ -50,8 +50,8 @@ begin
   -- Build a 10-digit numeric-only account number.
 
   acct := '';
-​  for i in 1..10 loop
-    acct := acct || floor(random() * 10)::int::text;;  -- digits only
+  for i in 1..10 loop
+    acct := acct || floor(random() * 10)::int::text;  -- digits only
   end loop;
   insert into public.profiles (id, email, full_name, role, status, account_number)
   values (
