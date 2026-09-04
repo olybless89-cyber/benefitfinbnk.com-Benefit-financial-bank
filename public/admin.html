@@ -260,6 +260,12 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         All Transactions
       </a>
+
+      <div class="nav-section">Settings</div>
+      <a class="nav-item" onclick="showSection('security')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Security
+      </a>
     </nav>
 
     <div class="sidebar-footer">
@@ -608,6 +614,35 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
               <tbody id="txns-tbody"></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ SECURITY ═══════════ -->
+      <div class="section" id="section-security">
+        <div class="section-title">Security</div>
+        <div class="section-sub">Manage your administrator login credentials.</div>
+        <div style="background:#0b1120;border:1px solid #1e2d4a;border-radius:10px;padding:20px;max-width:560px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #1e2d4a">
+            <div class="avatar" style="width:44px;height:44px;font-size:18px" id="admin-sec-avatar">A</div>
+            <div>
+              <div style="font-weight:700;color:#e2e8f0;font-size:14px" id="admin-sec-name">Admin</div>
+              <div style="font-size:12px;color:#64748b" id="admin-sec-email">—</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input class="form-input" type="password" id="sec-current" placeholder="Enter current password" autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input class="form-input" type="password" id="sec-new" placeholder="Min. 8 characters" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input class="form-input" type="password" id="sec-confirm" placeholder="Re-enter new password" autocomplete="new-password">
+          </div>
+          <div class="alert" id="sec-msg"></div>
+          <button class="btn btn-primary" onclick="doChangePassword()" id="sec-btn">Update Password</button>
         </div>
       </div>
 
@@ -1455,6 +1490,7 @@ function showSection(id) {
   if (id === 'deposits') loadDeposits();
   if (id === 'livechat') loadLiveChats();
   if (id === 'email') loadEmail();
+  if (id === 'security') renderAdminSecurity();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('section-' + id).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1469,6 +1505,43 @@ function setLoading(btnId, loading, text) { const b=document.getElementById(btnI
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('mob-backdrop').classList.toggle('show'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mob-backdrop').classList.remove('show'); }
 function doLogout() { sb.auth.signOut().then(()=>window.location.replace('/login')); }
+
+// ── Admin Security (change own password) ─────────────
+function renderAdminSecurity() {
+  const p = currentUser || {};
+  const nameEl = document.getElementById('admin-sec-name');
+  const emailEl = document.getElementById('admin-sec-email');
+  const avEl = document.getElementById('admin-sec-avatar');
+  if (nameEl) nameEl.textContent = p.full_name || (p.email||'').split('@')[0] || 'Admin';
+  if (emailEl) emailEl.textContent = p.email || '—';
+  if (avEl) avEl.textContent = ((p.full_name||p.email||'A')[0]||'A').toUpperCase();
+}
+
+function doChangePassword() {
+  const cur = document.getElementById('sec-current').value;
+  const nw  = document.getElementById('sec-new').value;
+  const cf  = document.getElementById('sec-confirm').value;
+  const msg = document.getElementById('sec-msg');
+  function fail(m) { msg.className = 'alert alert-err'; msg.textContent = m; msg.style.display = 'block'; }
+  if (!cur) return fail('Please enter your current password.');
+  if (!nw || nw.length < 8) return fail('New password must be at least 8 characters.');
+  if (nw !== cf) return fail('New password and confirmation do not match.');
+  setLoading('sec-btn', true, 'Updating…');
+  sb.auth.updateUser({ password: nw }).then(({ error }) => {
+    if (error) {
+      msg.className = 'alert alert-err'; msg.textContent = error.message || 'Password update failed.'; msg.style.display = 'block';
+    } else {
+      msg.className = 'alert alert-ok'; msg.textContent = 'Password updated successfully.'; msg.style.display = 'block';
+      ['sec-current','sec-new','sec-confirm'].forEach(id => document.getElementById(id).value = '');
+    }
+    setLoading('sec-btn', false, 'Update Password');
+  }).catch(e => { setLoading('sec-btn', false,'Update Password'); fail(e.message || 'Password update failed.'); });
+}
+
+['sec-current','sec-new','sec-confirm'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(), doChangePassword(); });
+});
 
 // Close modal on overlay click
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) closeModal(o.id); }));
