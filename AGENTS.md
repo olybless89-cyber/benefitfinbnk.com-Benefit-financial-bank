@@ -318,7 +318,7 @@ expected 22023 validation error proves existence).
 
 ## Support email + live chat everywhere + admin Email section (009) ‚Äî 2026-08-23
 - **Support email identity** is `support@benefitfinbnk.com`. It is shown on
-  /contact (Email Us card + footer, replacing a stray `test@burlingmail.click`
+  /contact (Email Us card + footer, replacing a stray old template email
   leftover) and in the chat widget's guest form.
 - **Chat widget is now on every public page**: it was missing from
   personal/business/cards/loans/faq/privacy-policy/terms-of-service ‚Äî the
