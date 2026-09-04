@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["php81"]
+
+[phases.install]
+cmds = []
+
+[phases.build]
+cmds = []

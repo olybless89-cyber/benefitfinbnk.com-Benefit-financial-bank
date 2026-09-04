@@ -1,0 +1,39 @@
+// Benefit Financial Bank — Static HTML/JS + Supabase install notes
+
+*** How to serve the site ***
+
+// Option A (PHP built-in server):
+php -S 0.0.0.0:$PORT -t public public/router.php
+// Option B (Node server, self-hosted Supabase support):
+PORT=12000 node serve.js
+// Host publicly with Vercel / Railway — see README.md. 
+
+*** Database ***
+
+// The app is backed by Supabase (Postgres + Auth). The full schema and
+// all migrations live in SQL/supabase/ (idempotent). Apply them in Supabase  
+// Dashboard ▸ SQL Editor or via the GitHub Actions workflow (SUPABASE_ACCESS_TOKEN
+// + SUPABASE_PROJECT_REF secrets). See README.md for the exact order.
+
+
+
+*** Supabase config ***
+
+// Replace the committed placeholders with your own project before go-live:
+//   <PROJECT_REF>, <SUPA_ANON_KEY>, <SUPA_EDGE_ANON_KEY> (register edge fn),
+//   <SUPA_LOCAL_ANON_KEY> (serve.js local default.
+
+
+
+*** Admin Logins ***
+
+https://benefitfinbnk.com/admin-login
+
+Email: admin@benefitfinbnk.com (created via Supabase Auth / SQL seed)
+
+
+
+*********************************************************************
+**** This online BANKING script is for educational purposes only. ****
+**** We are not responsible for any illegal use of this script. ******
+*********************************************************************

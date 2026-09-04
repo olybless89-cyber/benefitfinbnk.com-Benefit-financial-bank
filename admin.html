@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — Benefit Financial Bank</title>
+  <link rel="icon" type="image/svg+xml" href="storage/app/public/photos/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Layout ── */
+.app{display:flex;min-height:100vh}
+.sidebar{width:260px;background:#0d1526;border-right:1px solid #1e2d4a;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:200;transition:transform .25s}
+.sidebar.hidden-mob{transform:translateX(-100%)}
+.main{flex:1;margin-left:260px;display:flex;flex-direction:column;min-height:100vh}
+@media(max-width:768px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}}
+
+/* ── Sidebar ── */
+.sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid #1e2d4a}
+.sidebar-logo svg text{fill:#fff}
+.sidebar-badge{display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:20px;margin-top:6px}
+.sidebar-nav{flex:1;overflow-y:auto;padding:16px 0}
+.nav-section{padding:8px 20px 4px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#4a5568;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;cursor:pointer;color:#94a3b8;font-size:14px;font-weight:500;border-left:3px solid transparent;transition:.15s;text-decoration:none}
+.nav-item:hover{background:#1a2640;color:#e2e8f0;border-left-color:#2563eb}
+.nav-item.active{background:#1a2640;color:#60a5fa;border-left-color:#2563eb}
+.nav-item .icon{width:18px;height:18px;opacity:.7;flex-shrink:0}
+.nav-item.active .icon{opacity:1}
+.nav-badge{margin-left:auto;background:#ef4444;color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.sidebar-footer{padding:16px 20px;border-top:1px solid #1e2d4a}
+.sidebar-user{display:flex;align-items:center;gap:10px;font-size:13px;color:#94a3b8}
+.avatar{width:32px;height:32px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+
+/* ── Top bar ── */
+.topbar{background:#0d1526;border-bottom:1px solid #1e2d4a;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-title{font-size:17px;font-weight:700;color:#e2e8f0}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.btn-icon{background:transparent;border:1px solid #1e2d4a;color:#94a3b8;width:38px;height:38px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.btn-icon:hover{background:#1a2640;color:#e2e8f0}
+.hamburger{display:none}
+@media(max-width:768px){.hamburger{display:flex}}
+.logout-btn{background:#1e2d4a;color:#94a3b8;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.logout-btn:hover{background:#2563eb;color:#fff}
+
+/* ── Content ── */
+.content{flex:1;padding:28px 28px;overflow-y:auto}
+@media(max-width:768px){.content{padding:16px}}
+.section{display:none}.section.active{display:block}
+.section-title{font-size:20px;font-weight:700;color:#f1f5f9;margin-bottom:6px}
+.section-sub{font-size:13px;color:#64748b;margin-bottom:24px}
+
+/* ── Stats grid ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+.stat-card{background:#0d1526;border:1px solid #1e2d4a;border-radius:12px;padding:20px;position:relative;overflow:hidden;transition:.2s}
+.stat-card:hover{border-color:#2563eb;transform:translateY(-2px)}
+.stat-card::before{content:'';position:absolute;top:0;right:0;width:60px;height:60px;border-radius:0 12px 0 60px;opacity:.08}
+.stat-card.blue::before{background:#2563eb}
+.stat-card.purple::before{background:#7c3aed}
+.stat-card.green::before{background:#10b981}
+.stat-card.orange::before{background:#f59e0b}
+.stat-card.red::before{background:#ef4444}
+.stat-label{font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#64748b;margin-bottom:8px}
+.stat-value{font-size:26px;font-weight:800;color:#f1f5f9;line-height:1}
+.stat-sub{font-size:11px;color:#4a5568;margin-top:6px}
+.stat-icon{position:absolute;top:16px;right:16px;opacity:.15;font-size:28px}
+
+/* ── Tables ── */
+.table-wrap{background:#0d1526;border:1px solid #1e2d4a;border-radius:12px;overflow:hidden}
+.table-header{padding:16px 20px;border-bottom:1px solid #1e2d4a;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.table-header h3{font-size:15px;font-weight:700;color:#f1f5f9}
+.search-box{background:#0b1120;border:1px solid #1e2d4a;border-radius:8px;padding:8px 14px;font-size:13px;color:#e2e8f0;width:220px;outline:none;transition:.15s}
+.search-box:focus{border-color:#2563eb}
+.search-box::placeholder{color:#4a5568}
+.tbl{width:100%;border-collapse:collapse;min-width:600px}
+.tbl th{padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#4a5568;border-bottom:1px solid #1e2d4a;text-align:left;white-space:nowrap}
+.tbl td{padding:13px 16px;font-size:13px;color:#94a3b8;border-bottom:1px solid #0f1929;white-space:nowrap}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr.clickable:hover{background:#1a2640;cursor:pointer}
+.tbl tr.clickable td{color:#cbd5e1}
+.overflow-x{overflow-x:auto}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-active,.badge-approved,.badge-verified{background:#052e16;color:#4ade80}
+.badge-inactive,.badge-rejected{background:#2d0000;color:#f87171}
+.badge-pending{background:#1c1100;color:#fbbf24}
+.badge-admin{background:#1e1040;color:#a78bfa}
+.badge-user{background:#0a1f3a;color:#60a5fa}
+.badge-open{background:#0a1f3a;color:#60a5fa}
+.badge-in_progress{background:#1c1100;color:#fbbf24}
+.badge-resolved,.badge-closed{background:#052e16;color:#4ade80}
+.badge-cancelled{background:#1e1e1e;color:#94a3b8}
+.badge-unverified{background:#1e1e1e;color:#94a3b8}
+.badge-credit{background:#052e16;color:#4ade80}
+.badge-hold{background:#1c1100;color:#fbbf24}
+.badge-release,.badge-transfer{background:#0a1f3a;color:#60a5fa}
+
+/* ── Buttons ── */
+.btn{padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:#2563eb;color:#fff}.btn-primary:hover{background:#1d4ed8}
+.btn-success{background:#059669;color:#fff}.btn-success:hover{background:#047857}
+.btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
+.btn-warning{background:#d97706;color:#fff}.btn-warning:hover{background:#b45309}
+.btn-ghost{background:#1e2d4a;color:#94a3b8}.btn-ghost:hover{background:#2d3f5e;color:#e2e8f0}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:#0d1526;border:1px solid #1e2d4a;border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.5)}
+.modal-header{padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.modal-title{font-size:18px;font-weight:700;color:#f1f5f9}
+.modal-close{background:transparent;border:none;color:#64748b;cursor:pointer;font-size:22px;line-height:1;padding:0;flex-shrink:0;margin-top:2px}
+.modal-close:hover{color:#f87171}
+.modal-body{padding:20px 24px 24px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;font-weight:700;letter-spacing:.5px;color:#94a3b8;margin-bottom:6px;text-transform:uppercase}
+.form-input,.form-select,.form-textarea{width:100%;background:#0b1120;border:1.5px solid #1e2d4a;border-radius:8px;padding:11px 14px;font-size:14px;color:#e2e8f0;outline:none;transition:.15s;font-family:inherit}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:#2563eb}
+.form-textarea{resize:vertical;min-height:80px}
+.form-select option{background:#0d1526}
+.modal-footer{padding:0 24px 20px;display:flex;gap:10px;justify-content:flex-end}
+
+/* ── User profile panel ── */
+.user-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+@media(max-width:480px){.user-profile-grid{grid-template-columns:1fr}}
+.info-item .label{font-size:11px;font-weight:700;letter-spacing:.5px;color:#4a5568;text-transform:uppercase;margin-bottom:3px}
+.info-item .value{font-size:14px;color:#cbd5e1;font-weight:500}
+.balance-display{background:#0b1120;border:1px solid #1e2d4a;border-radius:10px;padding:16px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center}
+.balance-display .amt{font-size:22px;font-weight:800;color:#4ade80}
+.balance-display .amt.held{color:#fbbf24}
+.balance-display .lbl{font-size:11px;color:#4a5568;margin-top:2px}
+.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+
+/* ── Alert ── */
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
+.alert-err{background:#2d0000;color:#f87171;border:1px solid #7f1d1d}
+.alert-ok{background:#052e16;color:#4ade80;border:1px solid #14532d}
+.alert-info{background:#0a1f3a;color:#93c5fd;border:1px solid #1e3a5f}
+
+/* ── Loading ── */
+.loader-overlay{position:fixed;inset:0;background:rgba(11,17,32,.9);z-index:999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.spinner{width:42px;height:42px;border:4px solid #1e2d4a;border-top:4px solid #2563eb;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-text{font-size:15px;color:#60a5fa;font-weight:600}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:48px 24px;color:#4a5568}
+/* ── Inline alert banner (load failures) ── */
+.alert-banner{display:none;align-items:flex-start;gap:10px;background:#2d0f0f;border:1px solid #7f1d1d;border-left:4px solid #ef4444;color:#fca5a5;border-radius:10px;padding:14px 16px;margin:0 20px 16px;font-size:13px;line-height:1.5}
+.alert-banner.show{display:flex}
+.alert-banner .alert-icon{font-size:18px;line-height:1.2;flex-shrink:0}
+.alert-banner code{background:#1a0606;color:#fecaca;padding:1px 5px;border-radius:4px;font-size:12px}
+.alert-banner a{color:#93c5fd;text-decoration:underline}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-text{font-size:15px}
+
+/* ── Recent activity ── */
+.activity-list{display:flex;flex-direction:column;gap:0}
+.activity-item{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid #0f1929}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-green{background:#4ade80}.dot-yellow{background:#fbbf24}.dot-blue{background:#60a5fa}.dot-red{background:#f87171}
+.activity-info{flex:1;min-width:0}
+.activity-title{font-size:13px;font-weight:600;color:#cbd5e1;truncate:true;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.activity-meta{font-size:11px;color:#4a5568;margin-top:2px}
+.activity-amount{font-size:13px;font-weight:700;flex-shrink:0}
+.amount-credit{color:#4ade80}.amount-debit{color:#f87171}
+
+/* ── Overlay toggle ── */
+.mob-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:150}
+@media(max-width:768px){.mob-backdrop.show{display:block}}
+
+/* ── Email thread bubbles ── */
+.em-thread{display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto;padding:4px 2px}
+.em-msg{max-width:85%;display:flex;flex-direction:column;gap:3px}
+.em-msg.in{align-self:flex-end;align-items:flex-end}
+.em-msg.out{align-self:flex-start;align-items:flex-start}
+.em-msg .em-bubble{padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.em-msg.in .em-bubble{background:#1e40af;color:#eff6ff;border-bottom-right-radius:3px}
+.em-msg.out .em-bubble{background:#1e2d4a;color:#e2e8f0;border-bottom-left-radius:3px}
+.em-msg .em-meta{font-size:10px;color:#475569}
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loader-overlay" id="loader">
+  <div class="spinner"></div>
+  <span class="loader-text">Loading Admin Panel...</span>
+</div>
+
+<!-- Mobile backdrop -->
+<div class="mob-backdrop" id="mob-backdrop" onclick="closeSidebar()"></div>
+
+<div class="app">
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" width="160" height="36">
+        <path d="M8 10 L8 38 L16 38 L16 22 L22 34 L28 22 L28 38 L36 38 L36 10 L28 10 L22 24 L16 10 Z" fill="#fff"/>
+        <path d="M6 42 Q22 35 38 42" stroke="#93c5fd" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <text x="46" y="29" font-family="Inter,sans-serif" font-size="17" font-weight="700">Benefit Financial Bank</text>
+        <text x="47" y="42" font-family="Inter,sans-serif" font-size="8" font-weight="500" fill="#93c5fd" letter-spacing="2.5">BANK</text>
+      </svg>
+      <div class="sidebar-badge">ADMIN PANEL</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">Overview</div>
+      <a class="nav-item active" onclick="showSection('dashboard')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+
+      <div class="nav-section">User Management</div>
+      <a class="nav-item" onclick="showSection('users')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        All Users
+      </a>
+
+      <div class="nav-section">Approvals</div>
+      <a class="nav-item" onclick="showSection('deposits')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Deposits
+        <span class="nav-badge" id="nb-deposits">0</span>
+      </a>
+      <a class="nav-item" onclick="showSection('transfers')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        Transfers
+        <span class="nav-badge" id="nb-transfers">0</span>
+      </a>
+      <a class="nav-item" onclick="showSection('loans')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Loans
+        <span class="nav-badge" id="nb-loans">0</span>
+      </a>
+      <a class="nav-item" onclick="showSection('livechat')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Live Chat
+        <span class="nav-badge" id="nb-livechat" style="display:none">0</span>
+      </a>
+      <a class="nav-item" onclick="showSection('tickets')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Support Tickets
+        <span class="nav-badge" id="nb-tickets">0</span>
+      </a>
+      <a class="nav-item" onclick="showSection('email')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>
+        Email
+        <span class="nav-badge" id="nb-email" style="display:none">0</span>
+      </a>
+
+      <div class="nav-section">Finance</div>
+      <a class="nav-item" onclick="showSection('transactions')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        All Transactions
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar" id="admin-avatar">A</div>
+        <div>
+          <div id="admin-name" style="font-weight:600;color:#e2e8f0;font-size:13px">Admin</div>
+          <div style="font-size:11px">Super Administrator</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:14px">
+        <button class="btn-icon hamburger" onclick="toggleSidebar()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="topbar-title" id="page-title">Dashboard</span>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-icon" onclick="loadAll()" title="Refresh">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
+        <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- ═══════════ DASHBOARD ═══════════ -->
+      <div class="section active" id="section-dashboard">
+        <div class="section-title">Welcome back, Admin 👋</div>
+        <div class="section-sub">Here's what's happening across Benefit Financial Bank today.</div>
+
+        <div class="stats-grid">
+          <div class="stat-card blue">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value" id="s-total-users">—</div>
+            <div class="stat-sub" id="s-active-users">Loading...</div>
+            <div class="stat-icon">👥</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-label">Total Balance</div>
+            <div class="stat-value" id="s-total-balance">—</div>
+            <div class="stat-sub" id="s-total-held">Loading...</div>
+            <div class="stat-icon">💰</div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-label">Pending Transfers</div>
+            <div class="stat-value" id="s-pending-transfers">—</div>
+            <div class="stat-sub">Awaiting approval</div>
+            <div class="stat-icon">⏳</div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-label">Pending Loans</div>
+            <div class="stat-value" id="s-pending-loans">—</div>
+            <div class="stat-sub">Awaiting review</div>
+            <div class="stat-icon">📋</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-label">Pending Deposits</div>
+            <div class="stat-value" id="s-pending-deposits">—</div>
+            <div class="stat-sub">Awaiting approval</div>
+            <div class="stat-icon">💵</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-label">Open Tickets</div>
+            <div class="stat-value" id="s-open-tickets">—</div>
+            <div class="stat-sub">Support issues</div>
+            <div class="stat-icon">🎫</div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-label">Transactions</div>
+            <div class="stat-value" id="s-total-txns">—</div>
+            <div class="stat-sub">All time</div>
+            <div class="stat-icon">📊</div>
+          </div>
+        </div>
+
+        <!-- Recent activity -->
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Recent Transactions</h3>
+            <button class="btn btn-ghost btn-sm" onclick="showSection('transactions')">View All →</button>
+          </div>
+          <div id="recent-activity" style="padding:4px 0">
+            <div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Loading...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ USERS ═══════════ -->
+      <div class="section" id="section-users">
+        <div class="section-title">User Management</div>
+        <div class="section-sub">Click any user to manage their account, funds, and status.</div>
+        <div class="alert-banner" id="users-alert">
+          <span class="alert-icon">⚠️</span>
+          <span id="users-alert-text"></span>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>All Users <span id="user-count" style="color:#4a5568;font-weight:400;font-size:13px"></span></h3>
+            <input class="search-box" type="text" placeholder="Search by name or email..." id="user-search" oninput="filterUsers()">
+          </div>
+          <div class="overflow-x">
+            <table class="tbl">
+              <thead><tr>
+                <th>User</th><th>Account</th><th>Balance</th><th>Held</th>
+                <th>Status</th><th>KYC</th><th>Joined</th>
+              </tr></thead>
+              <tbody id="users-tbody">
+                <tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Loading users...</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ TRANSFERS ═══════════ -->
+      <div class="section" id="section-transfers">
+        <div class="section-title">Transfer Approvals</div>
+        <div class="section-sub">Review and approve or reject user transfer requests.</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Transfer Requests</h3>
+            <select id="transfer-filter" class="search-box" style="width:160px" onchange="loadTransfers()">
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="overflow-x">
+            <table class="tbl">
+              <thead><tr>
+                <th>User</th><th>Amount</th><th>Recipient</th><th>Bank</th>
+                <th>Reason</th><th>Status</th><th>Date</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="transfers-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ LOANS ═══════════ -->
+      <div class="section" id="section-loans">
+        <div class="section-title">Loan Applications</div>
+        <div class="section-sub">Review and approve or reject loan applications.</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Loan Applications</h3>
+            <select id="loan-filter" class="search-box" style="width:160px" onchange="loadLoans()">
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="overflow-x">
+            <table class="tbl">
+              <thead><tr>
+                <th>User</th><th>Amount</th><th>Term</th><th>Purpose</th>
+                <th>Income</th><th>Status</th><th>Date</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="loans-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ LIVE CHAT ═══════════ -->
+      <div class="section" id="section-livechat">
+        <div class="section-title">💬 Live Chat</div>
+        <div class="section-sub">Real-time support conversations with users.</div>
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:18px;height:calc(100vh - 180px);min-height:480px">
+          <!-- Chat session list -->
+          <div style="background:#0f1b2d;border:1.5px solid #1e2d4a;border-radius:14px;display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:14px 16px;border-bottom:1px solid #1e2d4a;display:flex;align-items:center;justify-content:space-between">
+              <span style="color:#e2e8f0;font-weight:700;font-size:14px">Conversations</span>
+              <button class="btn btn-ghost btn-sm" onclick="loadLiveChats()">↻ Refresh</button>
+            </div>
+            <div style="overflow-y:auto;flex:1" id="lc-session-list">
+              <div style="padding:24px;text-align:center;color:#64748b;font-size:13px">Loading…</div>
+            </div>
+          </div>
+          <!-- Chat window -->
+          <div style="background:#0f1b2d;border:1.5px solid #1e2d4a;border-radius:14px;display:flex;flex-direction:column;overflow:hidden" id="lc-window">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:13px;flex-direction:column;gap:8px" id="lc-empty-state">
+              <div style="font-size:36px">💬</div>
+              <div>Select a conversation to reply</div>
+            </div>
+            <!-- Chat messages pane (hidden until session selected) -->
+            <div style="display:none;flex-direction:column;height:100%" id="lc-chat-pane">
+              <div style="padding:14px 18px;border-bottom:1px solid #1e2d4a;display:flex;align-items:center;gap:10px">
+                <div style="width:34px;height:34px;border-radius:50%;background:#1e3a8a;display:flex;align-items:center;justify-content:center;color:#93c5fd;font-weight:700;font-size:14px" id="lc-user-avatar">U</div>
+                <div>
+                  <div style="color:#e2e8f0;font-weight:700;font-size:14px" id="lc-user-name">User</div>
+                  <div style="color:#64748b;font-size:12px" id="lc-user-email"></div>
+                </div>
+                <div style="margin-left:auto;display:flex;gap:8px">
+                  <select id="lc-status-sel" class="search-box" style="width:130px;font-size:12px" onchange="updateLcStatus()">
+                    <option value="open">Open</option>
+                    <option value="pending">Pending</option>
+                    <option value="closed">Resolved</option>
+                  </select>
+                </div>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#0a1525" id="lc-msgs"></div>
+              <div style="padding:12px 14px;border-top:1px solid #1e2d4a;background:#0f1b2d;display:flex;gap:8px;align-items:flex-end">
+                <textarea id="lc-reply-input" placeholder="Type your reply…" rows="2"
+                  style="flex:1;background:#1e2d4a;border:1.5px solid #2d3f5e;border-radius:10px;color:#e2e8f0;padding:9px 12px;font-size:13px;resize:none;outline:none;font-family:inherit"
+                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendLcReply();}"></textarea>
+                <button class="btn btn-primary btn-sm" id="lc-send-btn" onclick="sendLcReply()">Send</button>
+              </div>
+              <div class="alert alert-error" id="lc-err" style="display:none;margin:0 14px 10px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ TICKETS ═══════════ -->
+      <div class="section" id="section-tickets">
+        <div class="section-title">Support Tickets</div>
+        <div class="section-sub">Respond to user support requests.</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Tickets</h3>
+            <select id="ticket-filter" class="search-box" style="width:160px" onchange="loadTickets()">
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="overflow-x">
+            <table class="tbl">
+              <thead><tr>
+                <th>User</th><th>Subject</th><th>Category</th>
+                <th>Status</th><th>Date</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="tickets-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ EMAIL ═══════════ -->
+      <div class="section" id="section-email">
+        <div class="section-title">Email</div>
+        <div class="section-sub">Send and receive email as <strong style="color:#60a5fa">Benefit Financial Bank Support &lt;support@benefitfinbnk.com&gt;</strong>. Mail to registered users is delivered to their Webmail inbox.</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" id="email-tab-inbox" onclick="setEmailTab('inbox')">Inbox</button>
+              <button class="btn btn-ghost btn-sm" id="email-tab-sent" onclick="setEmailTab('sent')">Sent</button>
+              <button class="btn btn-ghost btn-sm" id="email-tab-compose" onclick="setEmailTab('compose')">✉️ Compose</button>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadEmail(true)">↻ Refresh</button>
+          </div>
+          <div class="overflow-x" id="email-inbox-pane">
+            <table class="tbl">
+              <thead><tr>
+                <th>From</th><th>Subject</th><th>Category</th>
+                <th>Status</th><th>Date</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="email-inbox-tbody"></tbody>
+            </table>
+          </div>
+          <div class="overflow-x" id="email-sent-pane" style="display:none">
+            <table class="tbl">
+              <thead><tr>
+                <th>To</th><th>Subject</th><th>Date</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="email-sent-tbody"></tbody>
+            </table>
+          </div>
+          <div id="email-compose-pane" style="display:none;padding:20px;max-width:640px">
+            <div class="alert alert-err" id="em-err"></div>
+            <div class="alert alert-ok" id="em-ok" style="display:none"></div>
+            <div class="info-note">Sent as <strong>Benefit Financial Bank Support &lt;support@benefitfinbnk.com&gt;</strong> — delivered to the user's Webmail inbox.</div>
+            <div class="form-group"><label class="form-label">To</label>
+              <select class="form-select" id="em-to"></select>
+            </div>
+            <div class="form-group"><label class="form-label">Subject</label><input class="form-input" type="text" id="em-subject" placeholder="e.g. Account verification update"></div>
+            <div class="form-group"><label class="form-label">Category</label>
+              <select class="form-select" id="em-category">
+                <option value="account">Account</option>
+                <option value="billing">Billing</option>
+                <option value="general">General</option>
+                <option value="technical">Technical</option>
+                <option value="fraud">Fraud / Security</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Message</label><textarea class="form-textarea" id="em-body" style="min-height:140px" placeholder="Type your message..."></textarea></div>
+            <button class="btn btn-primary" onclick="doEmailCompose()" id="em-btn">Send Email</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ DEPOSITS ═══════════ -->
+      <div class="section" id="section-deposits">
+        <div class="section-title">Deposit Requests</div>
+        <div class="section-sub">Review and approve or reject user deposit requests.</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Deposit Requests</h3>
+            <select id="deposit-filter" class="search-box" style="width:160px" onchange="loadDeposits()">
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="overflow-x">
+            <table class="tbl">
+              <thead><tr>
+                <th>User</th><th>Amount</th><th>Method</th><th>Reference</th>
+                <th>Status</th><th>Date</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="deposits-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ TRANSACTIONS ═══════════ -->
+      <div class="section" id="section-transactions">
+        <div class="section-title">All Transactions</div>
+        <div class="section-sub">Full ledger of all fund movements.</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Transaction Ledger</h3>
+            <input class="search-box" type="text" placeholder="Search..." id="txn-search" oninput="filterTxns()">
+          </div>
+          <div class="overflow-x">
+            <table class="tbl">
+              <thead><tr>
+                <th>User</th><th>Type</th><th>Amount</th><th>Reason</th>
+                <th>Status</th><th>Date</th>
+              </tr></thead>
+              <tbody id="txns-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- User Detail Modal -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="mu-name">User</div>
+        <div style="font-size:12px;color:#4a5568;margin-top:3px" id="mu-email"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-user')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="balance-display">
+        <div><div class="amt" id="mu-balance">$0.00</div><div class="lbl">Available Balance</div></div>
+        <div><div class="amt held" id="mu-held">$0.00</div><div class="lbl">Held Funds</div></div>
+      </div>
+      <div class="user-profile-grid">
+        <div class="info-item"><div class="label">Account</div><div class="value" id="mu-acct" style="font-family:monospace;font-size:11px;word-break:break-all">—</div></div>
+        <div class="info-item"><div class="label">Status</div><div class="value" id="mu-status"></div></div>
+        <div class="info-item"><div class="label">KYC</div><div class="value" id="mu-kyc"></div></div>
+        <div class="info-item"><div class="label">Joined</div><div class="value" id="mu-joined">—</div></div>
+      </div>
+
+      <div class="action-grid">
+        <button class="btn btn-success" onclick="openFundModal()">💵 Credit Funds</button>
+        <button class="btn btn-warning" onclick="openHoldModal()">🔒 Hold Funds</button>
+        <button class="btn btn-ghost" onclick="openReleaseModal()">🔓 Release Hold</button>
+        <button class="btn btn-ghost" onclick="openTxnHistory()">📋 Transactions</button>
+      </div>
+
+      <div class="action-grid" style="margin-top:10px">
+        <button class="btn btn-primary" onclick="openMessageModal()">✉️ Send Message</button>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-ghost btn-sm" id="mu-toggle-btn" onclick="toggleUserStatus()">Toggle Status</button>
+        <select class="form-select" style="flex:1;font-size:12px;padding:6px 10px" id="mu-kyc-select" onchange="updateKyc()">
+          <option value="">Update KYC Status...</option>
+          <option value="unverified">Unverified</option>
+          <option value="pending">Pending</option>
+          <option value="verified">Verified</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div class="alert alert-err" id="mu-err" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Credit Modal -->
+<div class="modal-overlay" id="modal-credit">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">💵 Credit Funds</div><button class="modal-close" onclick="closeModal('modal-credit')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="credit-err"></div>
+      <div class="form-group"><label class="form-label">Amount (USD)</label><input class="form-input" type="number" id="credit-amount" placeholder="0.00" min="0.01" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Reason</label><textarea class="form-textarea" id="credit-reason" placeholder="e.g. Welcome bonus, Account credit..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-credit')">Cancel</button>
+      <button class="btn btn-success" onclick="doCredit()" id="credit-btn">Credit Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hold Modal -->
+<div class="modal-overlay" id="modal-hold">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">🔒 Hold Funds</div><button class="modal-close" onclick="closeModal('modal-hold')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="hold-err"></div>
+      <div class="alert alert-info" id="hold-info" style="display:block">Available: <strong id="hold-avail">$0.00</strong></div>
+      <div class="form-group"><label class="form-label">Amount to Hold (USD)</label><input class="form-input" type="number" id="hold-amount" placeholder="0.00" min="0.01" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Reason for Hold</label><textarea class="form-textarea" id="hold-reason" placeholder="e.g. Pending KYC verification, Fraud investigation..." required></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-hold')">Cancel</button>
+      <button class="btn btn-warning" onclick="doHold()" id="hold-btn">Place Hold</button>
+    </div>
+  </div>
+</div>
+
+<!-- Release Hold Modal -->
+<div class="modal-overlay" id="modal-release">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">🔓 Release Hold</div><button class="modal-close" onclick="closeModal('modal-release')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="release-err"></div>
+      <div id="active-holds-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-release')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Transaction History Modal -->
+<div class="modal-overlay" id="modal-txn-history">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header"><div class="modal-title">📋 Transaction History</div><button class="modal-close" onclick="closeModal('modal-txn-history')">✕</button></div>
+    <div class="modal-body">
+      <div id="txn-history-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Deposit Review Modal -->
+<div class="modal-overlay" id="modal-deposit-review">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Review Deposit Request</div><button class="modal-close" onclick="closeModal('modal-deposit-review')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="dr-err"></div>
+      <div id="dr-details" style="background:#0b1120;border:1px solid #1e2d4a;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;color:#94a3b8;line-height:1.8"></div>
+      <div class="form-group"><label class="form-label">Admin Note (optional)</label><textarea class="form-textarea" id="dr-note" placeholder="Reason for approval/rejection..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-deposit-review')">Cancel</button>
+      <button class="btn btn-danger" onclick="doDepositReview('rejected')" id="dr-reject-btn">Reject</button>
+      <button class="btn btn-success" onclick="doDepositReview('approved')" id="dr-approve-btn">Approve & Credit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer Review Modal -->
+<div class="modal-overlay" id="modal-transfer-review">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Review Transfer Request</div><button class="modal-close" onclick="closeModal('modal-transfer-review')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="tr-err"></div>
+      <div id="tr-details" style="background:#0b1120;border:1px solid #1e2d4a;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;color:#94a3b8;line-height:1.8"></div>
+      <div class="form-group"><label class="form-label">Admin Note (optional)</label><textarea class="form-textarea" id="tr-note" placeholder="Reason for approval/rejection..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-transfer-review')">Cancel</button>
+      <button class="btn btn-danger" onclick="doTransferReview('rejected')" id="tr-reject-btn">Reject</button>
+      <button class="btn btn-success" onclick="doTransferReview('approved')" id="tr-approve-btn">Approve</button>
+    </div>
+  </div>
+</div>
+
+<!-- Loan Review Modal -->
+<div class="modal-overlay" id="modal-loan-review">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Review Loan Application</div><button class="modal-close" onclick="closeModal('modal-loan-review')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="lr-err"></div>
+      <div id="lr-details" style="background:#0b1120;border:1px solid #1e2d4a;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;color:#94a3b8;line-height:1.8"></div>
+      <div class="form-group"><label class="form-label">Admin Note</label><textarea class="form-textarea" id="lr-note" placeholder="Reason for approval/rejection..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-loan-review')">Cancel</button>
+      <button class="btn btn-danger" onclick="doLoanReview('rejected')" id="lr-reject-btn">Reject</button>
+      <button class="btn btn-success" onclick="doLoanReview('approved')" id="lr-approve-btn">Approve</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ticket Reply Modal -->
+<div class="modal-overlay" id="modal-ticket-reply">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Reply to Ticket</div><button class="modal-close" onclick="closeModal('modal-ticket-reply')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="tk-err"></div>
+      <div id="tk-details" style="background:#0b1120;border:1px solid #1e2d4a;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;color:#94a3b8;line-height:1.8"></div>
+      <div class="form-group"><label class="form-label">Your Reply</label><textarea class="form-textarea" id="tk-reply" style="min-height:100px" placeholder="Type your reply to the user..."></textarea></div>
+      <div class="form-group"><label class="form-label">Update Status</label>
+        <select class="form-select" id="tk-status">
+          <option value="in_progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-ticket-reply')">Cancel</button>
+      <button class="btn btn-primary" onclick="doTicketReply()" id="tk-btn">Send Reply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Send Message Modal (proactive admin → user mail) -->
+<div class="modal-overlay" id="modal-message">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">✉️ Send Message to <span id="msg-name">User</span></div><button class="modal-close" onclick="closeModal('modal-message')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="msg-err"></div>
+      <div class="alert alert-ok" id="msg-ok" style="display:none"></div>
+      <div class="info-note">This message is delivered to the user's Webmail inbox as an email from Benefit Financial Bank.</div>
+      <div class="form-group"><label class="form-label">Subject</label><input class="form-input" type="text" id="msg-subject" placeholder="e.g. Account verification update"></div>
+      <div class="form-group"><label class="form-label">Category</label>
+        <select class="form-select" id="msg-category">
+          <option value="account">Account</option>
+          <option value="billing">Billing</option>
+          <option value="general">General</option>
+          <option value="technical">Technical</option>
+          <option value="fraud">Fraud / Security</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Message</label><textarea class="form-textarea" id="msg-body" style="min-height:140px" placeholder="Type your message to the user..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-message')">Cancel</button>
+      <button class="btn btn-primary" onclick="doSendMessage()" id="msg-btn">Send Message</button>
+    </div>
+  </div>
+</div>
+
+<!-- Read Email Modal -->
+<div class="modal-overlay" id="modal-email-read">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">✉️ <span id="emr-title">Email</span></div><button class="modal-close" onclick="closeModal('modal-email-read')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="emr-err"></div>
+      <div class="alert alert-ok" id="emr-ok" style="display:none"></div>
+      <div id="emr-details" style="background:#0b1120;border:1px solid #1e2d4a;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;color:#94a3b8;line-height:1.8"></div>
+      <div id="emr-reply-wrap">
+        <div class="form-group"><label class="form-label">Reply (delivered to the user's Webmail inbox)</label><textarea class="form-textarea" id="emr-reply" style="min-height:100px" placeholder="Type your reply..."></textarea></div>
+      </div>
+      <div id="emr-guest-note" class="info-note" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-email-read')">Close</button>
+      <button class="btn btn-primary" onclick="doEmailReply()" id="emr-btn">Send Reply</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = "https://<PROJECT_REF>.supabase.co";
+const SUPA_KEY = "<SUPA_ANON_KEY>";
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const WALLET_ADDRESS = 'bc1qxy2kgdygjrsq2n0yrf2493p83kkfjhx0wlh';
+function walletShort(){return WALLET_ADDRESS.slice(0,6)+'…'+WALLET_ADDRESS.slice(-4);}
+
+function esc(s){ s = (s===null||s===undefined)?'':String(s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let currentUser = null;
+let allUsers = [];
+let allTxns = [];
+let selectedUserId = null;
+let selectedTransferId = null;
+let selectedLoanId = null;
+let selectedTicketId = null;
+
+// ── Init ──────────────────────────────────────────────
+async function init() {
+  // Safety net: never let the admin loader hang forever.
+  var hideLoader = function(){ var l = document.getElementById('loader'); if (l) l.style.display = 'none'; };
+  var safety = setTimeout(hideLoader, 10000);
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.replace('/admin-login'); return; }
+    const { data: profile, error: perr } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+    if (perr || !profile || profile.role !== 'admin') {
+      // Logged-in non-admins go to their user dashboard; signed-out users go to admin login.
+      if (profile) { window.location.replace('/dashboard'); return; }
+      sb.auth.signOut();
+      window.location.replace('/admin-login');
+      return;
+    }
+    if (profile.status === 'inactive') { sb.auth.signOut(); window.location.replace('/admin-login'); return; }
+    currentUser = profile;
+    document.getElementById('admin-name').textContent = profile.full_name || profile.email.split('@')[0];
+    document.getElementById('admin-avatar').textContent = (profile.full_name || profile.email)[0].toUpperCase();
+    try { await loadAll(); } catch (e) { console.error('admin loadAll error:', e); }
+  } catch (err) {
+    console.error('Admin init error:', err);
+  } finally {
+    clearTimeout(safety);
+    hideLoader();
+  }
+}
+
+async function loadAll() {
+  await loadUsers();
+  await loadTickets();
+  await Promise.all([loadStats(), loadDeposits(), loadTransfers(), loadLoans(), loadLiveChats(), loadTxns(), loadEmail()]);
+  // Keep the Email nav badge fresh so new incoming mail shows up without a
+  // manual refresh.
+  setInterval(() => { loadEmail(true).catch(() => {}); }, 30000);
+}
+
+// ── Stats ─────────────────────────────────────────────
+async function loadStats() {
+  const { data } = await sb.rpc('admin_get_stats');
+  if (!data) return;
+  document.getElementById('s-total-users').textContent = data.total_users;
+  document.getElementById('s-active-users').textContent = data.active_users + ' active';
+  document.getElementById('s-total-balance').textContent = '$' + Number(data.total_balance).toLocaleString('en',{minimumFractionDigits:2});
+  document.getElementById('s-total-held').textContent = '$' + Number(data.total_held).toLocaleString('en',{minimumFractionDigits:2}) + ' held';
+  document.getElementById('s-pending-deposits').textContent = data.pending_deposits || 0;
+  document.getElementById('s-pending-transfers').textContent = data.pending_transfers;
+  document.getElementById('s-pending-loans').textContent = data.pending_loans;
+  document.getElementById('s-open-tickets').textContent = data.open_tickets;
+  document.getElementById('s-total-txns').textContent = data.total_transactions;
+  // Nav badges
+  document.getElementById('nb-transfers').textContent = data.pending_transfers;
+  document.getElementById('nb-loans').textContent = data.pending_loans;
+  document.getElementById('nb-tickets').textContent = data.open_tickets;
+  // Hide zero badges
+  document.getElementById('nb-deposits').textContent = data.pending_deposits || 0;
+  document.getElementById('nb-deposits').style.display = (data.pending_deposits||0) === 0 ? 'none' : 'flex';
+  ['nb-transfers','nb-loans','nb-tickets'].forEach(id => {
+    document.getElementById(id).style.display = document.getElementById(id).textContent === '0' ? 'none' : 'flex';
+  });
+}
+
+// ── Users ─────────────────────────────────────────────
+// How user loading works (and why):
+//   1. Primary path: the `admin_get_all_users` SECURITY DEFINER RPC, which
+//      bypasses RLS and returns every profile. (Fixed in
+//      SQL/supabase/001_fix_admin_user_management.sql — the previous version
+//      threw `column reference "role" is ambiguous`.)
+//   2. Fallback: a direct client read of `profiles`. This only works if an
+//      admin-bypass RLS policy exists; by default RLS restricts reads to
+//      `auth.uid() = id`, so this returns at most the admin's own row. We use
+//      it opportunistically (e.g. on a project whose RLS allows admin reads)
+//      but otherwise fall through to a clear, actionable error instead of a
+//      silently-empty table.
+//   3. If both paths fail to return other users, show a banner explaining the
+//      one-time SQL fix to apply.
+async function loadUsers() {
+  hideUsersAlert();
+  let users = null;
+  let rpcErr = null;
+
+  const rpcRes = await sb.rpc('admin_get_all_users');
+  if (!rpcRes.error && Array.isArray(rpcRes.data)) {
+    users = rpcRes.data;
+  } else {
+    rpcErr = rpcRes.error;
+    // Opportunistic direct-table fallback (only helps if RLS grants admins a
+    // read-all policy; otherwise RLS limits this to the caller's own row).
+    const dir = await sb.from('profiles')
+      .select('id,email,full_name,role,status,balance,held_funds,account_number,kyc_status,phone,transaction_limit,created_at')
+      .order('created_at', { ascending: false });
+    if (!dir.error && Array.isArray(dir.data)) users = dir.data;
+  }
+
+  allUsers = users || [];
+  renderUsers(allUsers);
+  document.getElementById('user-count').textContent = '(' + allUsers.length + ')';
+
+  // Detect the broken/RLS-limited state: either the RPC threw, or the only
+  // rows we got back are the admin's own (RLS own-row restriction). Surface a
+  // clear, actionable message instead of leaving the admin staring at an empty
+  // (or single-row) list they cannot act on.
+  const myId = currentUser && currentUser.id;
+  const onlySelf = allUsers.length > 0 && allUsers.every(u => u.id === myId);
+  if (rpcErr || allUsers.length === 0 || onlySelf) {
+    showUsersAlert(rpcErr, onlySelf, allUsers.length);
+  }
+}
+
+function showUsersAlert(err, onlySelf, count) {
+  let msg;
+  if (err && /ambiguous/i.test(err.message || '')) {
+    msg = 'The <code>admin_get_all_users</code> database function has a bug (ambiguous <code>role</code> column) and must be fixed before users can be listed. Apply <code>SQL/supabase/001_fix_admin_user_management.sql</code> in the Supabase SQL editor, then reload.';
+  } else if (err) {
+    msg = 'Could not load users via <code>admin_get_all_users</code>: ' + (err.message || 'unknown error') + '. If this persists, apply <code>SQL/supabase/001_fix_admin_user_management.sql</code> in the Supabase SQL editor, then reload.';
+  } else if (onlySelf) {
+    msg = 'Only your own profile is visible. Row-Level Security on <code>profiles</code> is blocking cross-user reads. Apply <code>SQL/supabase/001_fix_admin_user_management.sql</code> in the Supabase SQL editor (it redefines the list as a SECURITY DEFINER RPC that bypasses RLS), then reload.';
+  } else {
+    msg = 'No users are visible yet. If accounts have been created, apply <code>SQL/supabase/001_fix_admin_user_management.sql</code> in the Supabase SQL editor, then reload.';
+  }
+  document.getElementById('users-alert-text').innerHTML = msg;
+  document.getElementById('users-alert').classList.add('show');
+}
+
+function hideUsersAlert() {
+  document.getElementById('users-alert').classList.remove('show');
+}
+
+function renderUsers(users) {
+  const tb = document.getElementById('users-tbody');
+  if (!users.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No users found</div></div></td></tr>'; return; }
+  tb.innerHTML = users.map(u => `
+    <tr class="clickable" onclick="openUserModal('${u.id}')">
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="avatar" style="width:28px;height:28px;font-size:11px">${(u.full_name||u.email)[0].toUpperCase()}</div>
+          <div>
+            <div style="font-weight:600;color:#e2e8f0">${u.full_name || '—'}</div>
+            <div style="font-size:11px;color:#4a5568">${u.email}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-family:monospace;font-size:12px">${u.account_number||'—'}</td>
+      <td style="color:#4ade80;font-weight:700">$${Number(u.balance||0).toLocaleString('en',{minimumFractionDigits:2})}</td>
+      <td style="color:#fbbf24">$${Number(u.held_funds||0).toLocaleString('en',{minimumFractionDigits:2})}</td>
+      <td><span class="badge badge-${u.status}">${u.status}</span></td>
+      <td><span class="badge badge-${u.kyc_status||'unverified'}">${u.kyc_status||'unverified'}</span></td>
+      <td>${new Date(u.created_at).toLocaleDateString()}</td>
+    </tr>`).join('');
+}
+
+function filterUsers() {
+  const q = document.getElementById('user-search').value.toLowerCase();
+  renderUsers(allUsers.filter(u => (u.email||'').toLowerCase().includes(q) || (u.full_name||'').toLowerCase().includes(q)));
+}
+
+// ── User Modal ────────────────────────────────────────
+function openUserModal(uid) {
+  const u = allUsers.find(x => x.id === uid);
+  if (!u) return;
+  selectedUserId = uid;
+  document.getElementById('mu-name').textContent = u.full_name || u.email;
+  document.getElementById('mu-email').textContent = u.email;
+  document.getElementById('mu-balance').textContent = '$' + Number(u.balance||0).toLocaleString('en',{minimumFractionDigits:2});
+  document.getElementById('mu-held').textContent = '$' + Number(u.held_funds||0).toLocaleString('en',{minimumFractionDigits:2});
+  document.getElementById('mu-acct').textContent = u.account_number || '—';
+  document.getElementById('mu-status').innerHTML = `<span class="badge badge-${u.status}">${u.status}</span>`;
+  document.getElementById('mu-kyc').innerHTML = `<span class="badge badge-${u.kyc_status||'unverified'}">${u.kyc_status||'unverified'}</span>`;
+  document.getElementById('mu-joined').textContent = new Date(u.created_at).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+  document.getElementById('mu-toggle-btn').textContent = u.status === 'active' ? '🚫 Deactivate User' : '✅ Activate User';
+  document.getElementById('mu-kyc-select').value = '';
+  document.getElementById('mu-err').style.display = 'none';
+  openModal('modal-user');
+}
+
+// Activate / deactivate a user via the admin_set_user_status RPC (SECURITY
+// DEFINER, bypasses RLS). The previous implementation wrote to `profiles`
+// directly from the client, which RLS silently blocked for any user other than
+// the admin themselves — so toggling status appeared to do nothing.
+async function toggleUserStatus() {
+  const u = allUsers.find(x => x.id === selectedUserId);
+  if (!u) return;
+  const newStatus = u.status === 'active' ? 'inactive' : 'active';
+  const btn = document.getElementById('mu-toggle-btn');
+  setLoading('mu-toggle-btn', true, 'Updating...');
+  document.getElementById('mu-err').style.display = 'none';
+  const { error } = await sb.rpc('admin_set_user_status', { target_id: selectedUserId, new_status: newStatus });
+  setLoading('mu-toggle-btn', false, u.status === 'active' ? '🚫 Deactivate User' : '✅ Activate User');
+  if (error) {
+    showAlert('mu-err', error.message || 'Could not update user status. Apply SQL/supabase/001_fix_admin_user_management.sql if the RPC is missing.');
+    return;
+  }
+  closeModal('modal-user');
+  await loadUsers();
+  await loadStats();
+}
+
+async function updateKyc() {
+  const val = document.getElementById('mu-kyc-select').value;
+  if (!val) return;
+  await sb.rpc('admin_update_kyc', { target_id: selectedUserId, new_kyc_status: val });
+  closeModal('modal-user');
+  await loadUsers();
+}
+
+// ── Fund Operations ───────────────────────────────────
+function openFundModal() { closeModal('modal-user'); document.getElementById('credit-amount').value=''; document.getElementById('credit-reason').value=''; document.getElementById('credit-err').style.display='none'; openModal('modal-credit'); }
+function openHoldModal() {
+  const u = allUsers.find(x => x.id === selectedUserId);
+  closeModal('modal-user');
+  document.getElementById('hold-amount').value=''; document.getElementById('hold-reason').value=''; document.getElementById('hold-err').style.display='none';
+  document.getElementById('hold-avail').textContent = '$' + Number(u?.balance||0).toLocaleString('en',{minimumFractionDigits:2});
+  openModal('modal-hold');
+}
+
+async function openReleaseModal() {
+  closeModal('modal-user');
+  document.getElementById('release-err').style.display='none';
+  const { data: holds } = await sb.rpc('admin_get_user_transactions', { target_uid: selectedUserId, filter_type: 'hold', filter_status: 'pending' });
+  const el = document.getElementById('active-holds-list');
+  if (!holds || !holds.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No active holds on this account.</div></div>'; }
+  else {
+    el.innerHTML = holds.map(h => `
+      <div style="background:#0b1120;border:1px solid #1e2d4a;border-radius:8px;padding:14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-weight:700;color:#fbbf24">$${Number(h.amount).toLocaleString('en',{minimumFractionDigits:2})}</div>
+          <div style="font-size:12px;color:#4a5568;margin-top:3px">${h.description||'—'}</div>
+          <div style="font-size:11px;color:#334155;margin-top:2px">${new Date(h.created_at).toLocaleDateString()}</div>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="doRelease('${h.id}')">Release</button>
+      </div>`).join('');
+  }
+  openModal('modal-release');
+}
+
+async function openTxnHistory() {
+  closeModal('modal-user');
+  const { data: txns } = await sb.rpc('admin_get_user_transactions', { target_uid: selectedUserId });
+  const el = document.getElementById('txn-history-body');
+  if (!txns || !txns.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No transactions yet.</div></div>'; }
+  else {
+    el.innerHTML = `<div class="overflow-x"><table class="tbl"><thead><tr><th>Type</th><th>Amount</th><th>Reason</th><th>Status</th><th>Date</th></tr></thead><tbody>` +
+      txns.map(t => `<tr><td><span class="badge badge-${t.type}">${t.type}</span></td><td style="font-weight:700;color:${t.type==='credit'?'#4ade80':t.type==='hold'?'#fbbf24':'#60a5fa'}">$${Number(t.amount).toFixed(2)}</td><td style="max-width:180px;white-space:normal">${t.description||'—'}</td><td><span class="badge badge-${t.status}">${t.status}</span></td><td>${new Date(t.created_at).toLocaleDateString()}</td></tr>`).join('') +
+      '</tbody></table></div>';
+  }
+  openModal('modal-txn-history');
+}
+
+async function doCredit() {
+  const amount = parseFloat(document.getElementById('credit-amount').value);
+  const reason = document.getElementById('credit-reason').value.trim();
+  if (!amount || amount <= 0) { showAlert('credit-err','Enter a valid amount'); return; }
+  if (!reason) { showAlert('credit-err','Please provide a reason'); return; }
+  setLoading('credit-btn', true, 'Processing...');
+  const { error } = await sb.rpc('admin_credit_user', { target_id: selectedUserId, amount, reason });
+  setLoading('credit-btn', false, 'Credit Account');
+  if (error) { showAlert('credit-err', error.message); return; }
+  closeModal('modal-credit');
+  await loadUsers(); await loadStats(); await loadTxns();
+}
+
+async function doHold() {
+  const amount = parseFloat(document.getElementById('hold-amount').value);
+  const reason = document.getElementById('hold-reason').value.trim();
+  if (!amount || amount <= 0) { showAlert('hold-err','Enter a valid amount'); return; }
+  if (!reason) { showAlert('hold-err','Reason is required for placing a hold'); return; }
+  setLoading('hold-btn', true, 'Placing hold...');
+  const { error } = await sb.rpc('admin_hold_funds', { target_id: selectedUserId, amount, reason });
+  setLoading('hold-btn', false, 'Place Hold');
+  if (error) { showAlert('hold-err', error.message); return; }
+  closeModal('modal-hold');
+  await loadUsers(); await loadStats();
+}
+
+async function doRelease(holdId) {
+  const { error } = await sb.rpc('admin_release_hold', { hold_transaction_id: holdId });
+  if (error) { showAlert('release-err', error.message); return; }
+  closeModal('modal-release');
+  await loadUsers(); await loadStats();
+}
+
+// ── Deposits ─────────────────────────────────────────────
+var selectedDepositId = null;
+var DEP_METHOD_LABELS = { bank_transfer: '🏦 Bank Transfer', paypal: '💳 PayPal', bitcoin: '₿ Bitcoin' };
+
+async function loadDeposits() {
+  const filter = document.getElementById('deposit-filter');
+  const status = filter ? filter.value : 'pending';
+  const { data } = await sb.rpc('admin_get_all_deposits');
+  const users = {};
+  allUsers.forEach(u => users[u.id] = u.email);
+  const tb = document.getElementById('deposits-tbody');
+  if (!tb) return;
+  const rows = (data || []).filter(d => !status || d.status === status);
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">💵</div><div class="empty-text">No deposit requests</div></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(d => `
+    <tr>
+      <td style="font-weight:600">${users[d.user_id] || d.user_id.substring(0,8)}</td>
+      <td style="font-weight:700;color:#4ade80;font-size:15px">$${Number(d.amount).toFixed(2)}</td>
+      <td>${DEP_METHOD_LABELS[d.method] || d.method}</td>
+      <td style="font-family:monospace;font-size:11px;color:#64748b">${d.reference || '—'}</td>
+      <td><span class="badge badge-${d.status}">${d.status}</span></td>
+      <td>${new Date(d.created_at).toLocaleDateString()}</td>
+      <td>${d.status === 'pending'
+        ? '<button class="btn btn-ghost btn-sm" onclick="openDepositReview(\'' + d.id + '\')">Review</button>'
+        : '<span style="color:#64748b;font-size:12px">Reviewed</span>'}</td>
+    </tr>`).join('');
+}
+
+function openDepositReview(did) {
+  selectedDepositId = did;
+  document.getElementById('dr-err').style.display = 'none';
+  document.getElementById('dr-note').value = '';
+  sb.rpc('admin_get_deposit', { d_id: did }).then(function(res) {
+    var d = res.data;
+    if (!d) return;
+    var users = {};
+    allUsers.forEach(function(u){ users[u.id] = u.email; });
+    document.getElementById('dr-details').innerHTML =
+      '<div><strong style="color:#e2e8f0">User:</strong> ' + (users[d.user_id] || d.user_id) + '</div>' +
+      '<div><strong style="color:#e2e8f0">Amount:</strong> <span style="color:#4ade80;font-weight:700;font-size:16px">$' + Number(d.amount).toFixed(2) + '</span></div>' +
+      '<div><strong style="color:#e2e8f0">Method:</strong> ' + (DEP_METHOD_LABELS[d.method] || d.method) + '</div>' +
+      '<div><strong style="color:#e2e8f0">Reference:</strong> <code style="font-size:11px">' + (d.reference || '—') + '</code></div>' +
+      '<div><strong style="color:#e2e8f0">Submitted:</strong> ' + new Date(d.created_at).toLocaleString() + '</div>';
+    openModal('modal-deposit-review');
+  });
+}
+
+async function doDepositReview(status) {
+  var note = document.getElementById('dr-note').value.trim();
+  var btnId = status === 'approved' ? 'dr-approve-btn' : 'dr-reject-btn';
+  setLoading(btnId, true, status === 'approved' ? 'Approving...' : 'Rejecting...');
+  var result = await sb.rpc('admin_review_deposit', {
+    deposit_id: selectedDepositId,
+    new_status: status,
+    note: note
+  });
+  setLoading(btnId, false, status === 'approved' ? 'Approve & Credit' : 'Reject');
+  if (result.error) { showAlert('dr-err', result.error.message); return; }
+  closeModal('modal-deposit-review');
+  await loadDeposits();
+  await loadStats();
+  await loadUsers();
+  await loadTxns();
+}
+
+// ── Transfers ─────────────────────────────────────────
+async function loadTransfers() {
+  const status = document.getElementById('transfer-filter').value;
+  const { data } = await sb.rpc('admin_get_all_transfers');
+  const users = {};
+  allUsers.forEach(u => users[u.id] = u.email);
+  const tb = document.getElementById('transfers-tbody');
+  const rows = (data || []).filter(t => !status || t.status === status);
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No transfer requests</div></div></td></tr>'; return; }
+  tb.innerHTML = rows.map(t => `
+    <tr>
+      <td>${users[t.user_id]||t.user_id.substring(0,8)}</td>
+      <td style="font-weight:700;color:#f1f5f9">$${Number(t.amount).toFixed(2)}</td>
+      <td>${t.recipient_name}</td>
+      <td>${t.bank_name}</td>
+      <td style="max-width:140px;white-space:normal;font-size:12px">${t.reason||'—'}</td>
+      <td><span class="badge badge-${t.status}">${t.status}</span></td>
+      <td>${new Date(t.created_at).toLocaleDateString()}</td>
+      <td>${t.status==='pending'?`<button class="btn btn-ghost btn-sm" onclick="openTransferReview('${t.id}')">Review</button>`:'<span style="color:#334155;font-size:12px">Reviewed</span>'}</td>
+    </tr>`).join('');
+}
+
+function openTransferReview(tid) {
+  selectedTransferId = tid;
+  document.getElementById('tr-err').style.display='none';
+  document.getElementById('tr-note').value='';
+  // Fetch transfer details inline
+  sb.rpc('admin_get_transfer', { t_id: tid }).then(({data:t}) => {
+    const users = {};
+    allUsers.forEach(u => users[u.id] = u.email);
+    document.getElementById('tr-details').innerHTML = `
+      <div><strong style="color:#e2e8f0">User:</strong> ${users[t.user_id]||t.user_id}</div>
+      <div><strong style="color:#e2e8f0">Amount:</strong> <span style="color:#4ade80;font-weight:700">$${Number(t.amount).toFixed(2)}</span></div>
+      <div><strong style="color:#e2e8f0">To:</strong> ${t.recipient_name} — ${t.bank_name}</div>
+      <div><strong style="color:#e2e8f0">Account:</strong> ${t.recipient_account}</div>
+      <div><strong style="color:#e2e8f0">Reason:</strong> ${t.reason||'—'}</div>
+      <div><strong style="color:#e2e8f0">Submitted:</strong> ${new Date(t.created_at).toLocaleString()}</div>`;
+    openModal('modal-transfer-review');
+  });
+}
+
+async function doTransferReview(status) {
+  const note = document.getElementById('tr-note').value.trim();
+  const btnId = status === 'approved' ? 'tr-approve-btn' : 'tr-reject-btn';
+  setLoading(btnId, true, status === 'approved' ? 'Approving...' : 'Rejecting...');
+  const { error } = await sb.rpc('admin_review_transfer', { transfer_id: selectedTransferId, new_status: status, note });
+  setLoading(btnId, false, status === 'approved' ? 'Approve' : 'Reject');
+  if (error) { showAlert('tr-err', error.message); return; }
+  closeModal('modal-transfer-review');
+  await loadTransfers(); await loadStats(); await loadUsers(); await loadTxns();
+}
+
+// ── Loans ─────────────────────────────────────────────
+async function loadLoans() {
+  const status = document.getElementById('loan-filter').value;
+  const { data } = await sb.rpc('admin_get_all_loans');
+  const users = {};
+  allUsers.forEach(u => users[u.id] = u.email);
+  const tb = document.getElementById('loans-tbody');
+  const rows = (data || []).filter(l => !status || l.status === status);
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No loan applications</div></div></td></tr>'; return; }
+  tb.innerHTML = rows.map(l => `
+    <tr>
+      <td>${users[l.user_id]||l.user_id.substring(0,8)}</td>
+      <td style="font-weight:700;color:#f1f5f9">$${Number(l.amount).toFixed(2)}</td>
+      <td>${l.term_months} mo</td>
+      <td style="max-width:140px;white-space:normal">${l.purpose}</td>
+      <td>${l.monthly_income?'$'+Number(l.monthly_income).toFixed(2):'—'}</td>
+      <td><span class="badge badge-${l.status}">${l.status}</span></td>
+      <td>${new Date(l.created_at).toLocaleDateString()}</td>
+      <td>${l.status==='pending'?`<button class="btn btn-ghost btn-sm" onclick="openLoanReview('${l.id}')">Review</button>`:'<span style="color:#334155;font-size:12px">Reviewed</span>'}</td>
+    </tr>`).join('');
+}
+
+function openLoanReview(lid) {
+  selectedLoanId = lid;
+  document.getElementById('lr-err').style.display='none';
+  document.getElementById('lr-note').value='';
+  sb.rpc('admin_get_loan', { l_id: lid }).then(({data:l}) => {
+    const users = {};
+    allUsers.forEach(u => users[u.id] = u.email);
+    document.getElementById('lr-details').innerHTML = `
+      <div><strong style="color:#e2e8f0">Applicant:</strong> ${users[l.user_id]||l.user_id}</div>
+      <div><strong style="color:#e2e8f0">Amount:</strong> <span style="color:#4ade80;font-weight:700">$${Number(l.amount).toFixed(2)}</span></div>
+      <div><strong style="color:#e2e8f0">Term:</strong> ${l.term_months} months</div>
+      <div><strong style="color:#e2e8f0">Purpose:</strong> ${l.purpose}</div>
+      <div><strong style="color:#e2e8f0">Monthly Income:</strong> ${l.monthly_income?'$'+Number(l.monthly_income).toFixed(2):'Not provided'}</div>
+      <div><strong style="color:#e2e8f0">Submitted:</strong> ${new Date(l.created_at).toLocaleString()}</div>`;
+    openModal('modal-loan-review');
+  });
+}
+
+async function doLoanReview(status) {
+  const note = document.getElementById('lr-note').value.trim();
+  const btnId = status === 'approved' ? 'lr-approve-btn' : 'lr-reject-btn';
+  setLoading(btnId, true, status === 'approved' ? 'Approving...' : 'Rejecting...');
+  const { error } = await sb.rpc('admin_review_loan', { loan_id: selectedLoanId, new_status: status, note });
+  setLoading(btnId, false, status === 'approved' ? 'Approve' : 'Reject');
+  if (error) { showAlert('lr-err', error.message); return; }
+  closeModal('modal-loan-review');
+  await loadLoans(); await loadStats(); await loadUsers(); await loadTxns();
+}
+
+// ── Tickets ───────────────────────────────────────────
+async function loadTickets() {
+  const status = document.getElementById('ticket-filter').value;
+  const { data } = await sb.rpc('admin_get_all_tickets');
+  window._allTickets = data || [];
+  const users = {};
+  allUsers.forEach(u => users[u.id] = u.email);
+  const tb = document.getElementById('tickets-tbody');
+  const rows = (data || []).filter(t => !status || t.status === status);
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">🎫</div><div class="empty-text">No support tickets</div></div></td></tr>'; return; }
+  tb.innerHTML = rows.map(t => `
+    <tr>
+      <td>${users[t.user_id]||(t.user_id ? t.user_id.substring(0,8) : 'Guest')}</td>
+      <td style="max-width:160px;white-space:normal;color:#e2e8f0">${t.subject}</td>
+      <td><span class="badge badge-user">${t.category}</span></td>
+      <td><span class="badge badge-${t.status}">${t.status.replace('_',' ')}</span></td>
+      <td>${new Date(t.created_at).toLocaleDateString()}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openTicketReply('${t.id}')">Reply</button></td>
+    </tr>`).join('');
+}
+
+function openTicketReply(tid) {
+  selectedTicketId = tid;
+  document.getElementById('tk-err').style.display='none';
+  document.getElementById('tk-reply').value='';
+  sb.rpc('admin_get_ticket', { t_id: tid }).then(({data:t}) => {
+    const users = {};
+    allUsers.forEach(u => users[u.id] = u.email);
+    document.getElementById('tk-details').innerHTML = `
+      <div><strong style="color:#e2e8f0">From:</strong> ${users[t.user_id]||(t.user_id||'Guest')}</div>
+      <div><strong style="color:#e2e8f0">Subject:</strong> ${t.subject}</div>
+      <div><strong style="color:#e2e8f0">Category:</strong> ${t.category}</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e2d4a;color:#cbd5e1">${t.message}</div>
+      ${t.admin_reply?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e2d4a"><strong style="color:#60a5fa">Previous Reply:</strong><div style="color:#94a3b8;margin-top:4px">${t.admin_reply}</div></div>`:''}`;
+    openModal('modal-ticket-reply');
+  });
+}
+
+async function doTicketReply() {
+  const reply = document.getElementById('tk-reply').value.trim();
+  const status = document.getElementById('tk-status').value;
+  if (!reply) { showAlert('tk-err','Please write a reply'); return; }
+  setLoading('tk-btn', true, 'Sending...');
+  const { error } = await sb.rpc('admin_reply_ticket', { ticket_id: selectedTicketId, reply, new_status: status });
+  setLoading('tk-btn', false, 'Send Reply');
+  if (error) { showAlert('tk-err', error.message); return; }
+  closeModal('modal-ticket-reply');
+  await loadTickets(); await loadStats();
+}
+
+// ── Proactive admin → user message ────────────────────
+// Inserts a ticket owned by the target user with admin_reply set to the body,
+// so it appears in their Webmail inbox as mail from the bank. Admin role RLS
+// permits cross-user inserts on support_tickets.
+function openMessageModal() {
+  const u = allUsers.find(x => x.id === selectedUserId);
+  if (!u) return;
+  document.getElementById('msg-name').textContent = u.full_name || u.email;
+  document.getElementById('msg-err').style.display = 'none';
+  document.getElementById('msg-ok').style.display = 'none';
+  document.getElementById('msg-subject').value = '';
+  document.getElementById('msg-body').value = '';
+  document.getElementById('msg-category').value = 'account';
+  closeModal('modal-user');
+  openModal('modal-message');
+}
+
+async function doSendMessage() {
+  const subject = document.getElementById('msg-subject').value.trim();
+  const body = document.getElementById('msg-body').value.trim();
+  const category = document.getElementById('msg-category').value;
+  if (!subject) { showAlert('msg-err', 'Please enter a subject'); return; }
+  if (!body) { showAlert('msg-err', 'Please write a message'); return; }
+  setLoading('msg-btn', true, 'Sending...');
+  const { error } = await sb.rpc('admin_send_message', {
+    target_user: selectedUserId,
+    p_subject: subject,
+    p_body: body,
+    p_category: category
+  });
+  setLoading('msg-btn', false, 'Send Message');
+  if (error) { showAlert('msg-err', error.message); return; }
+  document.getElementById('msg-ok').textContent = '✅ Message delivered to the user\'s inbox.';
+  document.getElementById('msg-ok').style.display = 'block';
+  document.getElementById('msg-subject').value = '';
+  document.getElementById('msg-body').value = '';
+  setTimeout(() => closeModal('modal-message'), 1600);
+}
+
+// ── Transactions ──────────────────────────────────────
+async function loadTxns() {
+  const { data } = await sb.rpc('admin_get_all_transactions');
+  allTxns = data || [];
+  renderTxns(allTxns);
+  // Recent activity on dashboard
+  const el = document.getElementById('recent-activity');
+  if (!allTxns.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">No transactions yet</div></div>'; return; }
+  const users = {};
+  allUsers.forEach(u => users[u.id] = u.email);
+  el.innerHTML = '<div class="activity-list" style="padding:4px 20px">' +
+    allTxns.slice(0,10).map(t => `
+      <div class="activity-item">
+        <div class="activity-dot ${t.type==='credit'?'dot-green':t.type==='hold'?'dot-yellow':t.type==='release'?'dot-blue':'dot-red'}"></div>
+        <div class="activity-info">
+          <div class="activity-title">${t.description||t.type}</div>
+          <div class="activity-meta">${users[t.user_id]||'—'} · ${new Date(t.created_at).toLocaleDateString()}</div>
+        </div>
+        <div class="activity-amount ${t.type==='credit'||t.type==='release'?'amount-credit':'amount-debit'}">
+          ${t.type==='credit'||t.type==='release'?'+':'-'}$${Number(t.amount).toFixed(2)}
+        </div>
+      </div>`).join('') + '</div>';
+}
+
+function renderTxns(txns) {
+  const users = {};
+  allUsers.forEach(u => users[u.id] = u.email);
+  const tb = document.getElementById('txns-tbody');
+  if (!txns.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">No transactions</div></div></td></tr>'; return; }
+  tb.innerHTML = txns.map(t => `
+    <tr>
+      <td>${users[t.user_id]||t.user_id.substring(0,8)}</td>
+      <td><span class="badge badge-${t.type}">${t.type}</span></td>
+      <td style="font-weight:700;color:${t.type==='credit'?'#4ade80':t.type==='hold'?'#fbbf24':'#60a5fa'}">$${Number(t.amount).toFixed(2)}</td>
+      <td style="max-width:200px;white-space:normal;font-size:12px">${t.description||'—'}</td>
+      <td><span class="badge badge-${t.status}">${t.status}</span></td>
+      <td>${new Date(t.created_at).toLocaleDateString()}</td>
+    </tr>`).join('');
+}
+
+function filterTxns() {
+  const q = document.getElementById('txn-search').value.toLowerCase();
+  const users = {};
+  allUsers.forEach(u => users[u.id] = u.email);
+  renderTxns(allTxns.filter(t => (t.description||'').toLowerCase().includes(q) || (users[t.user_id]||'').toLowerCase().includes(q) || t.type.includes(q)));
+}
+
+// ── UI Helpers ────────────────────────────────────────
+function showSection(id) {
+  if (id === 'deposits') loadDeposits();
+  if (id === 'livechat') loadLiveChats();
+  if (id === 'email') loadEmail();
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('page-title').textContent = event.currentTarget.textContent.trim().replace(/\d+/g,'').trim();
+  closeSidebar();
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+function showAlert(id, msg) { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; setTimeout(()=>el.style.display='none',5000); }
+function setLoading(btnId, loading, text) { const b=document.getElementById(btnId); if(b){b.disabled=loading; b.textContent=text;} }
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('mob-backdrop').classList.toggle('show'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mob-backdrop').classList.remove('show'); }
+function doLogout() { sb.auth.signOut().then(()=>window.location.replace('/login')); }
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) closeModal(o.id); }));
+
+// ── Live Chat Admin ────────────────────────────────────────────────────────
+let lcSessions = [];
+let lcSelectedId = null;
+let lcPollingTimer = null;
+
+async function loadLiveChats() {
+  const list = document.getElementById('lc-session-list');
+  if (!list) { console.error('lc-session-list not found'); return; }
+  list.innerHTML = '<div style="padding:16px;text-align:center;color:#64748b;font-size:13px">Loading…</div>';
+  let data = window._allTickets;
+  if (!data) {
+    try {
+      const { data: d, error } = await Promise.race([
+        sb.rpc('admin_get_all_tickets'),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out')), 12000))
+      ]);
+      if (error) { list.innerHTML = '<div style="padding:16px;color:#f87171;font-size:13px">Error: ' + esc(error.message) + '</div>'; return; }
+      data = d || [];
+      window._allTickets = data;
+    } catch (e) {
+      list.innerHTML = '<div style="padding:16px;color:#f87171;font-size:13px">Error: ' + esc(e.message || String(e)) + '</div>'; return;
+    }
+  }
+  const tickets = (data || []).filter(t => t.category === 'live_chat').sort((a,b) => (b.updated_at||'').localeCompare(a.updated_at||''));
+  lcSessions = tickets;
+
+  // Badge count
+  const openCount = tickets.filter(t => t.status === 'open').length;
+  const badge = document.getElementById('nb-livechat');
+  if (openCount > 0) { badge.style.display = 'inline-flex'; badge.textContent = openCount; }
+  else { badge.style.display = 'none'; }
+
+  if (!tickets.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:#64748b;font-size:13px">No live chat sessions yet</div>';
+    return;
+  }
+
+  const users = {};
+  allUsers.forEach(u => { users[u.id] = u; });
+
+  list.innerHTML = tickets.map(t => {
+    const u = users[t.user_id];
+    const name = u ? (u.full_name || u.email) : (t.user_id ? t.user_id.substring(0, 8) : 'Guest');
+    const initials = (name[0] || 'U').toUpperCase();
+    const isOpen = t.status === 'open';
+    const preview = lcPreview(t);
+    const selected = t.id === lcSelectedId ? 'background:#1e2d4a;' : '';
+    return `<div onclick="selectLcSession('${t.id}')" style="padding:13px 16px;border-bottom:1px solid #1a2640;cursor:pointer;${selected}border-left:3px solid ${isOpen ? '#2563eb' : '#1e2d4a'}">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px">
+        <div style="width:28px;height:28px;border-radius:50%;background:#1e3a8a;display:flex;align-items:center;justify-content:center;color:#93c5fd;font-weight:700;font-size:11px;flex-shrink:0">${initials}</div>
+        <div style="flex:1;min-width:0">
+          <div style="color:#e2e8f0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${isOpen ? '#1e3a8a' : '#1e2d4a'};color:${isOpen ? '#93c5fd' : '#64748b'}">${t.status}</span>
+      </div>
+      <div style="color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:37px">${esc(preview)}</div>
+    </div>`;
+  }).join('');
+}
+
+function lcPreview(t) {
+  const lines = (t.message || '').split('\n---\n').filter(l => l && l !== '__chat_init__');
+  if (!lines.length) return t.admin_reply || '(no messages yet)';
+  const last = lines[lines.length - 1].replace(/^\[(admin|user)\]\s*/, '').replace(/\s*\[\d{4}-[^\]]+\]$/, '');
+  return last.slice(0, 60);
+}
+
+function selectLcSession(id) {
+  lcSelectedId = id;
+  const t = lcSessions.find(x => x.id === id);
+  if (!t) return;
+  const users = {}; allUsers.forEach(u => { users[u.id] = u; });
+  const u = users[t.user_id];
+  const name = u ? (u.full_name || u.email) : t.user_id.substring(0, 8);
+  const initials = (name[0] || 'U').toUpperCase();
+
+  document.getElementById('lc-empty-state').style.display = 'none';
+  document.getElementById('lc-chat-pane').style.display = 'flex';
+  document.getElementById('lc-user-avatar').textContent = initials;
+  document.getElementById('lc-user-name').textContent = name;
+  document.getElementById('lc-user-email').textContent = u ? u.email : '';
+  document.getElementById('lc-status-sel').value = t.status;
+  document.getElementById('lc-err').style.display = 'none';
+  document.getElementById('lc-reply-input').value = '';
+
+  renderLcMsgs(t);
+  // Refresh session list to highlight selection
+  loadLiveChats();
+  // Poll for new messages every 4s while this session is open
+  clearInterval(lcPollingTimer);
+  lcPollingTimer = setInterval(() => pollLcSession(id), 4000);
+}
+
+async function pollLcSession(id) {
+  if (lcSelectedId !== id) { clearInterval(lcPollingTimer); return; }
+  const { data } = await sb.rpc('admin_get_ticket', { t_id: id });
+  if (data) {
+    const idx = lcSessions.findIndex(x => x.id === id);
+    if (idx >= 0) lcSessions[idx] = data;
+    renderLcMsgs(data);
+  }
+}
+
+function renderLcMsgs(t) {
+  const msgs = parseLcMsgs(t);
+  const el = document.getElementById('lc-msgs');
+  if (!msgs.length) {
+    el.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#475569;font-size:13px">No messages yet — waiting for user…</div>';
+    return;
+  }
+  el.innerHTML = msgs.map(m => {
+    const isAdmin = m.side === 'admin';
+    return `<div style="display:flex;flex-direction:column;align-items:${isAdmin ? 'flex-end' : 'flex-start'};gap:2px;max-width:100%">
+      <div style="max-width:75%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word;
+        ${isAdmin ? 'background:#1e40af;color:#eff6ff;border-bottom-right-radius:3px' : 'background:#1e2d4a;color:#e2e8f0;border-bottom-left-radius:3px'}">${esc(m.text)}</div>
+      <div style="font-size:10px;color:#475569">${isAdmin ? 'You' : 'User'} · ${m.time ? new Date(m.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : ''}</div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function parseLcMsgs(t) {
+  const out = [];
+  (t.message || '').split('\n---\n').forEach(chunk => {
+    if (!chunk || chunk === '__chat_init__') return;
+    const isAdmin = chunk.startsWith('[admin]');
+    out.push({
+      side: isAdmin ? 'admin' : 'user',
+      text: chunk.replace(/^\[(admin|user)\]\s*/, '').replace(/\s*\[\d{4}-[^\]]+\]$/, '').trim(),
+      time: t.updated_at
+    });
+  });
+  if (t.admin_reply && !out.find(m => m.side === 'admin' && m.text === t.admin_reply)) {
+    out.push({ side: 'admin', text: t.admin_reply, time: t.updated_at });
+  }
+  return out;
+}
+
+async function sendLcReply() {
+  const text = document.getElementById('lc-reply-input').value.trim();
+  if (!text || !lcSelectedId) return;
+  setLoading('lc-send-btn', true, '…');
+  document.getElementById('lc-err').style.display = 'none';
+
+  const t = lcSessions.find(x => x.id === lcSelectedId);
+  const newStatus = document.getElementById('lc-status-sel').value;
+  const { data: updated, error } = await sb.rpc('admin_append_ticket_message', {
+    ticket_id: lcSelectedId, msg: text, p_admin_reply: text, new_status: newStatus
+  });
+  setLoading('lc-send-btn', false, 'Send');
+  if (error) { showAlert('lc-err', error.message); return; }
+  document.getElementById('lc-reply-input').value = '';
+  // Update local state & re-render immediately
+  if (updated) {
+    if (t) { t.message = updated.message; t.admin_reply = text; t.status = updated.status; }
+    else if (updated) { lcSessions.unshift(updated); }
+    renderLcMsgs(updated);
+  } else if (t) {
+    t.admin_reply = text;
+    renderLcMsgs(t);
+  }
+}
+
+async function updateLcStatus() {
+  if (!lcSelectedId) return;
+  const newStatus = document.getElementById('lc-status-sel').value;
+  await sb.rpc('admin_set_ticket_status', { ticket_id: lcSelectedId, new_status: newStatus });
+  const t = lcSessions.find(x => x.id === lcSelectedId);
+  if (t) t.status = newStatus;
+  loadLiveChats();
+}
+
+// ── Email (support@benefitfinbnk.com) ───────────────────────────────────
+// Mail is modelled on support_tickets (same as the user dashboard Webmail):
+//   INBOUND  = ticket with a user/guest-written message (not a placeholder)
+//   OUTBOUND = ticket with admin_reply set (reply, proactive message, or
+//              automated notification) — shown under Sent.
+// Live-chat threads are excluded; they live in the Live Chat section.
+const EMAIL_PLACEHOLDER_MSGS = ['Admin message', 'Notification', 'Welcome email', '__chat_init__'];
+let emailTab = 'inbox';
+let emailAll = [];
+let emailInbox = [];
+let emailSent = [];
+let selectedEmailId = null;
+
+function emailIsInbound(t) {
+  if (t.category === 'live_chat') return false;
+  return EMAIL_PLACEHOLDER_MSGS.indexOf((t.message || '').trim()) === -1;
+}
+function emailGuestFrom(t) {
+  const m = (t.message || '').match(/From:\s*(.+?)\s*<([^>\s]+)>/);
+  return m ? { name: m[1], email: m[2] } : null;
+}
+// In-platform address for a registered user: <account_number>@benefitfinbnk.com
+// (same scheme the user Webmail shows). Guests keep their real email — they
+// have no account address.
+function userMailAddr(u) {
+  const acct = (u && u.account_number ? u.account_number : (u && u.id ? u.id : 'user')).toLowerCase();
+  return acct + '@benefitfinbnk.com';
+}
+function emailFromLabel(t) {
+  const u = allUsers.find(x => x.id === t.user_id);
+  if (u) return (u.full_name || u.email) + ' <' + userMailAddr(u) + '>';
+  const g = emailGuestFrom(t);
+  if (g) return g.name + ' <' + g.email + '>';
+  return t.user_id ? t.user_id.substring(0, 8) : 'Guest';
+}
+function emailToLabel(t) {
+  const u = allUsers.find(x => x.id === t.user_id);
+  if (u) return userMailAddr(u);
+  const g = emailGuestFrom(t);
+  return g ? g.email : (t.user_id ? t.user_id.substring(0, 8) : 'Guest');
+}
+
+// Threading — same subject normalization as the user Webmail: rows sharing a
+// subject (ignoring "Re: " prefixes) form one conversation.
+function emailThreadKey(s) {
+  return String(s || '(no subject)').toLowerCase()
+    .replace(/^support message sent\s*[—-]\s*/i, '')
+    .replace(/^(re:\s*)+/, '')
+    .trim();
+}
+function emailActivityTs(t) { return t.updated_at || t.created_at || ''; }
+function emailThreads(list) {
+  const map = {}, threads = [];
+  list.forEach(r => {
+    const k = emailThreadKey(r.subject);
+    if (!map[k]) { map[k] = { key: k, rows: [], latestTs: '' }; threads.push(map[k]); }
+    const th = map[k];
+    th.rows.push(r);
+    const ts = emailActivityTs(r);
+    if (ts > th.latestTs) th.latestTs = ts;
+  });
+  threads.forEach(th => th.rows.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')));
+  threads.sort((a, b) => b.latestTs.localeCompare(a.latestTs));
+  return threads;
+}
+function emailThreadSubject(th) {
+  return String(th.rows[th.rows.length - 1].subject || '(no subject)')
+    .replace(/^support message sent\s*[—-]\s*/i, '')
+    .replace(/^(re:\s*)+/i, '');
+}
+function emailThreadLatest(th) {
+  let latest = th.rows[0];
+  th.rows.forEach(r => { if (emailActivityTs(r) >= emailActivityTs(latest)) latest = r; });
+  return latest;
+}
+
+async function loadEmail(force) {
+  let data = window._allTickets;
+  if (force || !data) {
+    const { data: d, error } = await sb.rpc('admin_get_all_tickets');
+    if (error) {
+      document.getElementById('email-inbox-tbody').innerHTML =
+        '<tr><td colspan="6"><div class="empty"><div class="empty-text">Error: ' + esc(error.message) + '</div></div></td></tr>';
+      return;
+    }
+    data = d || [];
+    window._allTickets = data;
+  }
+  const mail = (data || []).filter(t => t.category !== 'live_chat');
+  emailAll = mail;
+  emailInbox = mail.filter(emailIsInbound)
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  emailSent = mail.filter(t => t.admin_reply && t.admin_reply.trim())
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
+  const unread = emailInbox.filter(t => t.status === 'open').length;
+  const badge = document.getElementById('nb-email');
+  if (unread > 0) { badge.style.display = 'inline-flex'; badge.textContent = unread; }
+  else { badge.style.display = 'none'; }
+
+  renderEmailLists();
+  // (Re)build the compose recipient list from the known users.
+  const sel = document.getElementById('em-to');
+  const cur = sel.value;
+  sel.innerHTML = allUsers
+    .slice()
+    .sort((a, b) => (a.email || '').localeCompare(b.email || ''))
+    .map(u => '<option value="' + u.id + '">' + esc(u.full_name ? u.full_name + ' <' + u.email + '>' : u.email) + '</option>')
+    .join('');
+  if (cur) sel.value = cur;
+}
+
+function renderEmailLists() {
+  const ib = document.getElementById('email-inbox-tbody');
+  const inThreads = emailThreads(emailInbox);
+  if (!inThreads.length) {
+    ib.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Inbox is empty</div></div></td></tr>';
+  } else {
+    ib.innerHTML = inThreads.map(th => {
+      const t = emailThreadLatest(th);
+      return `
+    <tr>
+      <td style="max-width:180px;white-space:normal">${esc(emailFromLabel(t))}</td>
+      <td style="max-width:180px;white-space:normal;color:#e2e8f0">${esc(emailThreadSubject(th))}${th.rows.length > 1 ? ` <span style="color:#64748b;font-size:11px">(${th.rows.length})</span>` : ''}</td>
+      <td><span class="badge badge-user">${esc(t.category)}</span></td>
+      <td><span class="badge badge-${t.status}">${(t.status || '').replace('_', ' ')}</span></td>
+      <td>${new Date(emailActivityTs(t)).toLocaleDateString()}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openEmail('${t.id}')">Read / Reply</button></td>
+    </tr>`;
+    }).join('');
+  }
+  const st = document.getElementById('email-sent-tbody');
+  const outThreads = emailThreads(emailSent);
+  if (!outThreads.length) {
+    st.innerHTML = '<tr><td colspan="4"><div class="empty"><div class="empty-icon">📤</div><div class="empty-text">No sent mail</div></div></td></tr>';
+  } else {
+    st.innerHTML = outThreads.map(th => {
+      const t = emailThreadLatest(th);
+      return `
+    <tr>
+      <td style="max-width:180px;white-space:normal">${esc(emailToLabel(t))}</td>
+      <td style="max-width:220px;white-space:normal;color:#e2e8f0">${esc(emailThreadSubject(th))}${th.rows.length > 1 ? ` <span style="color:#64748b;font-size:11px">(${th.rows.length})</span>` : ''}</td>
+      <td>${new Date(emailActivityTs(t)).toLocaleDateString()}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openEmail('${t.id}')">View</button></td>
+    </tr>`;
+    }).join('');
+  }
+}
+
+function setEmailTab(tab) {
+  emailTab = tab;
+  ['inbox', 'sent', 'compose'].forEach(x => {
+    document.getElementById('email-' + x + '-pane').style.display = x === tab ? '' : 'none';
+    const b = document.getElementById('email-tab-' + x);
+    b.classList.toggle('btn-primary', x === tab);
+    b.classList.toggle('btn-ghost', x !== tab);
+  });
+  if (tab !== 'compose') loadEmail();
+}
+
+function openEmail(id) {
+  const t = emailAll.find(x => x.id === id);
+  if (!t) return;
+  const th = emailThreads(emailAll).find(x => x.key === emailThreadKey(t.subject)) || { rows: [t], latestTs: emailActivityTs(t) };
+  const latest = emailThreadLatest(th);
+  // Replies go on the newest user-authored row so they land on the user's
+  // most recent message (and never overwrite an earlier admin_reply).
+  const replyRow = th.rows.filter(emailIsInbound).pop() || null;
+  selectedEmailId = replyRow ? replyRow.id : null;
+  document.getElementById('emr-err').style.display = 'none';
+  document.getElementById('emr-ok').style.display = 'none';
+  document.getElementById('emr-reply').value = '';
+  document.getElementById('emr-title').textContent = emailThreadSubject(th);
+
+  const bubbles = [];
+  th.rows.forEach(r => {
+    const msgText = (r.message || '').trim();
+    if (msgText && EMAIL_PLACEHOLDER_MSGS.indexOf(msgText) === -1) {
+      bubbles.push({ side: 'out', text: r.message, ts: r.created_at, from: emailFromLabel(r) });
+    }
+    if (r.admin_reply && r.admin_reply.trim()) {
+      bubbles.push({ side: 'in', text: r.admin_reply, ts: r.updated_at || r.created_at,
+        from: 'Benefit Financial Bank Support <support@benefitfinbnk.com>' });
+    }
+  });
+  const u = allUsers.find(x => x.id === latest.user_id);
+  document.getElementById('emr-details').innerHTML = `
+    <div><strong style="color:#e2e8f0">With:</strong> ${esc(emailFromLabel(latest))}</div>
+    <div><strong style="color:#e2e8f0">As:</strong> Benefit Financial Bank Support &lt;support@benefitfinbnk.com&gt;</div>
+    <div><strong style="color:#e2e8f0">Latest activity:</strong> ${new Date(th.latestTs).toLocaleString()}</div>
+    ${u && u.email ? `<div style="color:#475569;font-size:11px">Login email: ${esc(u.email)}</div>` : ''}
+    <div class="em-thread" style="margin-top:10px;padding-top:10px;border-top:1px solid #1e2d4a">
+      ${bubbles.length ? bubbles.map(b => `
+        <div class="em-msg ${b.side}">
+          <div class="em-bubble">${esc(b.text)}</div>
+          <div class="em-meta">${esc(b.from)} · ${b.ts ? new Date(b.ts).toLocaleString() : ''}</div>
+        </div>`).join('') : '<div class="em-meta">No message content.</div>'}
+    </div>`;
+  // Guests (contact form / guest chat) have no Webmail account, so a reply
+  // stored on the ticket can never reach them — offer a mailto hand-off.
+  const guest = replyRow && !replyRow.user_id ? emailGuestFrom(replyRow) : null;
+  const canReply = !!replyRow && !guest;
+  document.getElementById('emr-reply-wrap').style.display = canReply ? '' : 'none';
+  document.getElementById('emr-btn').style.display = canReply ? '' : 'none';
+  const note = document.getElementById('emr-guest-note');
+  if (guest) {
+    note.innerHTML = 'This sender is a guest with no account Webmail. Reply directly at ' +
+      '<a style="color:#60a5fa" href="mailto:' + esc(guest.email) + '?subject=' + encodeURIComponent('Re: ' + (replyRow.subject || '')) + '">' + esc(guest.email) + '</a>';
+    note.style.display = 'block';
+  } else {
+    note.style.display = 'none';
+  }
+  openModal('modal-email-read');
+}
+
+async function doEmailReply() {
+  const reply = document.getElementById('emr-reply').value.trim();
+  if (!reply) { showAlert('emr-err', 'Please write a reply'); return; }
+  setLoading('emr-btn', true, 'Sending...');
+  const { error } = await sb.rpc('admin_reply_ticket', { ticket_id: selectedEmailId, reply, new_status: 'resolved' });
+  setLoading('emr-btn', false, 'Send Reply');
+  if (error) { showAlert('emr-err', error.message); return; }
+  closeModal('modal-email-read');
+  await loadEmail(true);
+}
+
+async function doEmailCompose() {
+  const to = document.getElementById('em-to').value;
+  const subject = document.getElementById('em-subject').value.trim();
+  const body = document.getElementById('em-body').value.trim();
+  const category = document.getElementById('em-category').value;
+  if (!to) { showAlert('em-err', 'Please choose a recipient'); return; }
+  if (!subject) { showAlert('em-err', 'Please enter a subject'); return; }
+  if (!body) { showAlert('em-err', 'Please write a message'); return; }
+  setLoading('em-btn', true, 'Sending...');
+  const { error } = await sb.rpc('admin_send_message', { target_user: to, p_subject: subject, p_body: body, p_category: category });
+  setLoading('em-btn', false, 'Send Email');
+  if (error) { showAlert('em-err', error.message); return; }
+  const ok = document.getElementById('em-ok');
+  ok.textContent = '✅ Email delivered to the user\'s Webmail inbox.';
+  ok.style.display = 'block';
+  setTimeout(() => ok.style.display = 'none', 5000);
+  document.getElementById('em-subject').value = '';
+  document.getElementById('em-body').value = '';
+  await loadEmail(true);
+}
+
+init();
+</script>
+</body>
+</html>

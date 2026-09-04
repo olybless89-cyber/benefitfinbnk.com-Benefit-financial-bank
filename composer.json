@@ -1,0 +1,11 @@
+{
+    "name": "grandchase/website",
+    "description": "Grand Chase Banking Website",
+    "type": "project",
+    "require": {
+        "php": "^8.1"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
