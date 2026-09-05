@@ -58,6 +58,8 @@ const REWRITES = {
   '/contact': '/contact.html',
   '/login': '/login.html',
   '/register': '/register.html',
+  '/forgot-password': '/forgot-password.html',
+  '/reset-password': '/reset-password.html',
   '/about': '/about.html',
   '/faq': '/faq.html',
   '/apps': '/apps.html',

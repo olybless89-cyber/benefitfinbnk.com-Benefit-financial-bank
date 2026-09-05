@@ -410,5 +410,32 @@ reject saves note only), ticket append/status/reply, `create_guest_ticket`
 `SUPABASE_API_URL` may now be an `https://` URL (e.g. the hosted project);
 the proxy picks `https.request` and port 443 automatically. Browser E2E:
 `SUPABASE_API_URL=https://<project>.supabase.co SUPABASE_ANON_KEY=<hosted
-anon key> PORT=12000 node serve.js` ‚Äî register, deposit, chat, login all
+anon key> PORT=12000 node serve.js` — register, deposit, chat, login all
 verified working against the live project this way.
+
+## Password reset + change password (2026-09-05）
+- **Forgot password flow**: `forgot-password.html` (+ `public/` mirror) calls
+  `sb.auth.resetPasswordForEmail(email, { redirectTo: origin + "/reset-password" })`.
+  Always shows the SAME success copy (never reveals whether an address is
+  registered). Supabase's `recover` endpoint accepted it live (200 `{}`;
+  the email delivery depends on the project's Auth > SMTP email settings being
+  enabled — that is a Supabase dashboard config, out of band. The recovery
+  link redirect URL `https://benefitfinbnk.com/reset-password` must be added to
+  the project's Auth > URL Configuration > Redirect URLs allow-list.
+
+- **Reset-password page**: `reset-password.html` (+ `public/` mirror） creates
+  the client with `auth:{ autoRefreshToken: false, persistSession: false,
+  detectSessionInUrl: true }` so it consumes the recovery hash without persisting
+  a session; `getSession()` validates the recovery session,then
+  `updateUser({ password })` sets the new one, `signOut()`, redirect to `/login`.
+  If no session, shows "invalid/expired link" + link back to forgot-password.
+
+- **Change password (logged-in)**: dashboard "Security" section (`Settings`
+  nav group) mirrors admin's change-own-password: `sec-current/sec-new/
+  sec-confirm` + `doChangePassword()` → `sb.auth.updateUser({ password })`;
+  min. 8 chars, client validates confirm match. Works for BOTH old and
+  newly-registered users (any authenticated session — profile row isn't needed)..
+  Admin's existing "Security" change-own-password section already covered admins.
+
+- **Routes**: `vercel.json` + `public/router.php` map `/forgot-password` and
+  `/reset-password` to the `.html` files; keep root + `public/` copies in sync.
