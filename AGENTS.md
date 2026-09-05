@@ -177,7 +177,7 @@ accounts untouched and fills NULLs.
 ### Account number vs. wallet address ‚Äî display rule
 The UI surfaces the user's **real `account_number`** in all account-number
 spots, and the shared `WALLET_ADDRESS` constant
-(`bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh`) **only** in the BTC deposit
+(`bc1q83l2870qn970jgc3y0ac6jaa6wl9gg4vc847zj`) **only** in the BTC deposit
 context. Specifically:
 - Dashboard sidebar `ID:` ‚Üí `account_number`
 - Dashboard balance card (label "Account Number") ‚Üí `account_number`
