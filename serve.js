@@ -22,13 +22,13 @@ const url = require('url');
 
 const PUBLIC = path.resolve(__dirname, 'public');
 const PORT = Number(process.env.PORT || 12000);
-const SUPABASE_API_URL = (process.env.SUPABASE_API_URL || 'http://127.0.0.1:54321').replace(/\/$/, '');
+const SUPABASE_API_URL = (process.env.SUPABASE_API_URL || 'https://hmmtcnklfpqjoumwdcoj.supabase.co').replace(/\/$/, '');
 
-// Local self-hosted Supabase anon key (public, demo project). Override with
-// SUPABASE_ANON_KEY when running against a self-hosted stack whose JWT secret
-// differs from the Supabase CLI default.
+// Anon key for the default hosted project (public key embedded in served HTML).
+// Override with SUPABASE_ANON_KEY when running against a self-hosted stack whose
+// JWT secret differs from the hosted project's secret.
 const LOCAL_ANON_KEY = process.env.SUPABASE_ANON_KEY
-  || '<SUPA_LOCAL_ANON_KEY>';
+  || 'sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C';
 
 // The hosted project values embedded in the committed HTML. We replace these
 // at serve time so the browser talks to the /supa proxy instead.
