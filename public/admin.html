@@ -159,6 +159,23 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
 .empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
 .empty-text{font-size:15px}
 
+/* ── Deposit Payment Methods ── */
+.pm-tabs .pm-tab{background:#0b1120;border:1px solid #1e2d4a;color:#94a3b8;font-weight:600;padding:9px 16px;border-radius:10px;cursor:pointer}
+.pm-tabs .pm-tab:hover{border-color:#2563eb;color:#e2e8f0}
+.pm-tabs .pm-tab.active{background:#1a3a8f;border-color:#2563eb;color:#fff}
+.pm-card .form-group{background:#0d1526;border:1px solid #1e2d4a;border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.pm-card .form-label{font-size:12px;color:#94a3b8;margin-bottom:6px}
+.pm-card .form-input{width:100%;background:#0b1120;border:1px solid #2a3b5c;border-radius:8px;color:#e2e8f0;padding:10px 12px;font-size:13px;outline:none}
+.pm-card .form-input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.pm-card .form-textarea{width:100%;background:#0b1120;border:1px solid #2a3b5c;border-radius:8px;color:#e2e8f0;padding:10px 12px;font-size:13px;outline:none;min-height:90px;resize:vertical;font-family:inherit}
+.pm-card .form-textarea:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.pm-card .kv{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid #121b2f;font-size:13px}
+.pm-card .kv:last-child{border-bottom:none}
+.pm-card .kv .k{color:#64748b;flex:0 0 auto}
+.pm-card .kv .v{color:#e2e8f0;text-align:right;word-break:break-all;font-family:monospace;font-size:12px}
+.pm-status-on{background:#052e16;color:#4ade80;border:1px solid #14532d}
+.pm-status-off{background:#3a0a0a;color:#f87171;border:1px solid #7f1d1d}
+
 /* ── Recent activity ── */
 .activity-list{display:flex;flex-direction:column;gap:0}
 .activity-item{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid #0f1929}
@@ -269,6 +286,10 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
       <a class="nav-item" onclick="showSection('security')" href="#">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         Security
+      </a>
+      <a class="nav-item" onclick="showSection('deposit-methods')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 9V7a5 5 0 0 0-10 0v2"/><circle cx="12" cy="12" r="3.5"/><path d="M3 12a9 9 0 0 1 18 0M3 12a9 9 0 0 0 18 0"/></svg>
+        Deposit Payment Methods
       </a>
     </nav>
 
@@ -656,6 +677,44 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         </div>
       </div>
 
+      <!-- ═══ DEPOSIT PAYMENT METHODS ═══ -->
+      <div class="section" id="section-deposit-methods">
+        <div class="section-title">Deposit Payment Methods</div>
+        <div class="section-sub">Manage the payment information customers see when funding their accounts. Changes apply immediately — no deployment needed.</div>
+        <div class="alert alert-err" id="pm-err" style="display:none;margin-bottom:14px"></div>
+        <div class="alert alert-ok" id="pm-ok" style="display:none;margin-bottom:14px"></div>
+
+        <div class="pm-tabs" id="pm-tabs" style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+          <button class="btn pm-tab active" data-pm="bitcoin" onclick="pmSelectTab(this,'bitcoin')">₿ Bitcoin</button>
+          <button class="btn pm-tab" data-pm="bank_transfer" onclick="pmSelectTab(this,'bank_transfer')">🏦 Bank Transfer</button>
+          <button class="btn pm-tab" data-pm="paypal" onclick="pmSelectTab(this,'paypal')">💳 PayPal</button>
+        </div>
+
+        <div class="pm-card" id="pm-card" style="background:#0b1120;border:1px solid #1e2d4a;border-radius:14px;padding:24px;max-width:840px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+            <div style="font-size:18px;font-weight:800;color:#e2e8f0" id="pm-card-title">Bitcoin</div>
+            <span class="badge" id="pm-status-badge" style="background:#052e16;color:#4ade80;border:1px solid #14532d">Active</span>
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:18px" id="pm-card-sub">Show this wallet to customers who select Bitcoin.</div>
+
+          <div id="pm-view">
+            <div id="pm-current" style="margin-bottom:20px"></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="pmStartEdit()">✏️ Edit</button>
+              <button class="btn btn-ghost" id="pm-toggle-btn" onclick="pmToggleActive()">Deactivate</button>
+            </div>
+          </div>
+
+          <div id="pm-edit" style="display:none">
+            <div id="pm-fields"></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+              <button class="btn btn-primary" onclick="pmSave()" id="pm-save-btn">Save Changes</button>
+              <button class="btn btn-ghost" onclick="pmCancelEdit()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -945,6 +1004,137 @@ const WALLET_ADDRESS = 'bc1q83l2870qn970jgc3y0ac6jaa6wl9gg4vc847zj';
 function walletShort(){return WALLET_ADDRESS.slice(0,6)+'…'+WALLET_ADDRESS.slice(-4);}
 
 function esc(s){ s = (s===null||s===undefined)?'':String(s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Deposit Payment Methods ────────────────────────────
+const PM_LABELS = {
+  bitcoin: { title: 'Bitcoin', sub: 'Show this wallet to customers who select Bitcoin.' },
+  bank_transfer: { title: 'Bank Transfer', sub: 'Show these bank details to customers who select Bank Transfer.' },
+  paypal: { title: 'PayPal', sub: 'Show this PayPal account to customers who select PayPal.' }
+};
+const PM_FIELDS = {
+  bitcoin: [
+    { k: 'wallet_address', l: 'Bitcoin Wallet Address', ph: 'bc1q...', type: 'text' },
+    { k: 'network', l: 'Network', ph: 'e.g. Bitcoin (BTC) Mainnet', type: 'text' },
+    { k: 'instructions', l: 'Payment Instructions (optional)', ph: 'e.g. Send only BTC...', type: 'textarea' }
+  ],
+  bank_transfer: [
+    { k: 'bank_name', l: 'Bank Name', ph: 'Bank name', type: 'text' },
+    { k: 'account_name', l: 'Account Name', ph: 'Account holder name', type: 'text' },
+    { k: 'account_number', l: 'Account Number', ph: 'Account number', type: 'text' },
+    { k: 'swift_bic', l: 'SWIFT / BIC', ph: 'e.g. BFBBUS33', type: 'text' },
+    { k: 'iban', l: 'IBAN (where applicable)', ph: 'e.g. GB29NWBK...', type: 'text' },
+    { k: 'bank_address', l: 'Bank Address (optional)', ph: 'Bank street, city., country', type: 'text' },
+    { k: 'currency', l: 'Currency', ph: 'e.g. USD', type: 'text' },
+    { k: 'instructions', l: 'Payment Instructions (optional)', ph: 'e.g. Include your wallet address as the transfer reference.', type: 'textarea' }
+  ],
+  paypal: [
+    { k: 'paypal_email', l: 'PayPal Account / Email', ph: 'payments@example.com', type: 'text' },
+    { k: 'instructions', l: 'Payment Instructions (optional)', ph: 'e.g. Send to the address above...', type: 'textarea' }
+  ]
+};
+let pmData = null;
+let pmCurrent = 'bitcoin';
+let pmEditing = false;
+
+function pmShowAlert(kind, msg) {
+  const el = document.getElementById('pm-' + kind);
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.className = 'alert alert-' + (kind === 'err' ? 'err' : 'ok') + (kind === 'err' ? '' : '') ;
+  setTimeout(function(){ el.style.display = 'none'; }, 6000);
+}
+async function pmLoad() {
+  pmShowAlert('err', '');
+  const { data, error } = await sb.rpc('admin_get_payment_methods');
+  if (error) { pmShowAlert('err', 'Failed to load payment methods: ' + error.message); return; }
+  const rows = Array.isArray(data) ? data : [];
+  pmData = {};
+  rows.forEach(function(r){ pmData[r.id] = r; });
+  pmRender();
+}
+function pmSelectTab(el, method) {
+  pmCurrent = method;
+  document.querySelectorAll('.pm-tab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  if (pmEditing) pmCancelEdit();
+  pmRender();
+}
+function pmRender() {
+  if (!pmData) return;
+  const r = pmData[pmCurrent];
+  if (!r) { document.getElementById('pm-current').innerHTML = '<div class="empty" style="padding:20px">No data for this method.</div>'; return; }
+  const meta = PM_LABELS[pmCurrent] || {};
+  document.getElementById('pm-card-title').textContent = meta.title || pmCurrent;
+  document.getElementById('pm-card-sub').textContent = meta.sub || '';
+  const badge = document.getElementById('pm-status-badge');
+  badge.textContent = r.active ? 'Active' : 'Inactive';
+  badge.className = 'badge ' + (r.active ? 'pm-status-on' : 'pm-status-off');
+  document.getElementById('pm-toggle-btn').textContent = r.active ? 'Deactivate' : 'Activate';
+  document.getElementById('pm-toggle-btn').style.background = r.active ? '#3a1a48' : '#052e16';
+  document.getElementById('pm-toggle-btn').style.color = r.active ? '#e2e8f0' : '#4ade80';
+  const rows = PM_FIELDS[pmCurrent].map(function(f) {
+    const v = r[f.k] || '';
+    const disp = v ? '<div class="v">' + esc(v) + '</div>' : '<div class="v" style="color:#4a5568">—</div>';
+    return '<div class="kv"><div class="k">' + esc(f.l) + '</div>' + disp + '</div>';
+  }).join('');
+  document.getElementById('pm-current').innerHTML = '<div style="font-size:12px;color:#64748b;margin-bottom:8px">Current Details</div><div style="border:1px solid #1e2d4a;border-radius:10px;padding:4px 14px">' + rows + '</div>';
+}
+function pmStartEdit() {
+  if (!pmData?.[pmCurrent]) return;
+  pmEditing = true;
+  document.getElementById('pm-view').style.display = 'none';
+  document.getElementById('pm-edit').style.display = 'block';
+  const r = pmData[pmCurrent];
+  const html = PM_FIELDS[pmCurrent].map(function(f) {
+    const v = r[f.k] || '';
+    if (f.type === 'textarea') {
+      return '<div class="form-group"><label class="form-label">' + esc(f.l) + '</label><textarea class="form-textarea" id="pm-f-' + f.k + '" placeholder="' + esc(f.ph) + '">' + esc(v) + '</textarea></div>';
+    }
+    return '<div class="form-group"><label class="form-label">' + esc(f.l) + '</label><input class="form-input" type="text" id="pm-f-' + f.k + '" value="' + esc(v) + '" placeholder="' + esc(f.ph) + '"></div>';
+  }).join('');
+  document.getElementById('pm-fields').innerHTML = html;
+}
+function pmCancelEdit() {
+  pmEditing = false;
+  document.getElementById('pm-view').style.display = 'block';
+  document.getElementById('pm-edit').style.display = 'none';
+  pmRender();
+}
+function pmCollect() {
+  const patch = {};
+  PM_FIELDS[pmCurrent].forEach(function(f) { patch[f.k] = document.getElementById('pm-f-' + f.k).value.trim(); });
+  return patch;
+}
+async function pmSave() {
+  const patch = pmCollect();
+  if (pmCurrent === 'bitcoin' && !patch.wallet_address) { pmShowAlert('err', 'Bitcoin wallet address is required.'); return; }
+  if (pmCurrent === 'bank_transfer' && (!patch.bank_name || !patch.account_name || !patch.account_number)) { pmShowAlert('err', 'Bank name, account name and account number are required for Bank Transfer.'); return; }
+  if (pmCurrent === 'paypal' && !patch.paypal_email) { pmShowAlert('err', 'PayPal email is required.'); return; }
+  if (pmCurrent === 'paypal' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(patch.paypal_email)) { pmShowAlert('err', 'Invalid PayPal email address.'); return; }
+  const btn = document.getElementById('pm-save-btn');
+  pmShowAlert('err', ''); pmShowAlert('ok', '');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const { data, error } = await sb.rpc('admin_update_payment_method', { p_method: pmCurrent, p_patch: patch });
+  btn.disabled = false; btn.textContent = 'Save Changes';
+  if (error) { pmShowAlert('err', error.message); return; }
+  if (data) pmData[data.id] = data;
+  pmCancelEdit();
+  pmShowAlert('ok', 'Payment method updated. Customers will see the new details immediately.');
+}
+async function pmToggleActive() {
+  if (!pmData?.[pmCurrent]) return;
+  const r = pmData[pmCurrent];
+  const next = !r.active;
+  const btn = document.getElementById('pm-toggle-btn');
+  btn.disabled = true; btn.textContent = (next ? 'Activating...' : 'Deactivating...');
+  const { data, error } = await sb.rpc('admin_toggle_payment_method', { p_method: pmCurrent, p_active: next });
+  btn.disabled = false;
+  if (error) { pmShowAlert('err', error.message); pmRender(); return; }
+  if (data) pmData[data.id] = data;
+  pmRender();
+  pmShowAlert('ok', (next ? 'Payment method activated.' : 'Payment method deactivated.') + ' Customers will no longer see this method.');
+}
 
 // ── International Wire codes ────────────────────────────
 const WIRE_DEFAULTS = { enabled:false, cost:'', tax:'', release:'' }
@@ -1705,16 +1895,18 @@ function filterTxns() {
 }
 
 // ── UI Helpers ────────────────────────────────────────
-function showSection(id) {
+function showSection(id, el) {
   if (id === 'deposits') loadDeposits();
   if (id === 'livechat') loadLiveChats();
   if (id === 'email') loadEmail();
   if (id === 'security') renderAdminSecurity();
+  if (id === 'deposit-methods') pmLoad();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('section-' + id).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  event.currentTarget.classList.add('active');
-  document.getElementById('page-title').textContent = event.currentTarget.textContent.trim().replace(/\d+/g,'').trim();
+  const navEl = el || event.currentTarget;
+  if (navEl && navEl.classList) navEl.classList.add('active');
+  document.getElementById('page-title').textContent = (navEl && navEl.textContent ? navEl.textContent : '').trim().replace(/\d+/g,'').trim();
   closeSidebar();
 }
 function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }

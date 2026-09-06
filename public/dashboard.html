@@ -607,7 +607,7 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:14px 2
 
       <div style="max-width:820px;margin:0 auto">
         <!-- Wallet address funding box -->
-        <div style="background:#fff;border:1.5px solid #bfdbfe;border-radius:12px;padding:18px 20px;margin-bottom:24px">
+        <div id="dep-btc-box" style="background:#fff;border:1.5px solid #bfdbfe;border-radius:12px;padding:18px 20px;margin-bottom:24px">
           <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:8px">Your Wallet Address (use this to add funds)</div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <code id="dep-acct-num" style="flex:1;min-width:220px;background:#f1f5f9;padding:10px 12px;border-radius:8px;font-size:13px;word-break:break-all;display:block">—</code>
@@ -871,12 +871,16 @@ const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 let userId=null,userProfile=null,allTxns=[];
 let wfPendingAmount=null, wfPendingLabel='';
 
-// Wallet address used as the account identifier everywhere. Replaces the old
-// numeric account number so users can fund directly from this
-// address. No digits-only account number is generated or shown anywhere.
+// Bitcoin wallet is set by admin in the DB (payment_methods table, migration 011;
+// surface via the get_active_payment_methods RPC). The constant below is the safe
+// fallback (the BTC deposit destination of record) used only until the DB responds
+// or when the admin has not configured an active Bitcoin method yet.
 const WALLET_ADDRESS='bc1q83l2870qn970jgc3y0ac6jaa6wl9gg4vc847zj';
-function walletDisplay(){return WALLET_ADDRESS;}
-function walletShort(){return WALLET_ADDRESS.slice(0,6)+'…'+WALLET_ADDRESS.slice(-4);}
+let pmActive=null; // id -> active payment method row (from get_active_payment_methods)
+let pmLoaded=false;
+function pmBtcWallet(){return (pmActive&&pmActive.bitcoin&&pmActive.bitcoin.wallet_address)||WALLET_ADDRESS;}
+function walletDisplay(){return pmBtcWallet();}
+function walletShort(){var w=pmBtcWallet();return w.slice(0,6)+'…'+w.slice(-4);}
 
 async function init(){
   // Hard safety net: never let the loader hang forever. If anything below
@@ -901,6 +905,10 @@ async function init(){
     // Keep admins out of the user dashboard — they belong in /admin.
     if(p.role==='admin'){window.location.replace('/admin');return;}
     userProfile=p;
+    // Load admin-configured deposit payment methods from the DB (async; falls
+    // back to the hard-coded constants until it resolves, so the deposit page
+    // always has details to show).
+    loadActivePaymentMethods();
 // International Wire codes shared by admin link (?wf=1&cost=... ) - apply over the
     // server config so codes auto-fill without a backend write
     try {
@@ -1229,24 +1237,101 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('ope
 var depMethod = 'bank_transfer';
 var depChipActive = null;
 
-var DEP_METHOD_INFO = {
-  bank_transfer: '<strong style="color:var(--navy)">Bank Transfer Details</strong><br>Bank: <strong>Benefit International Bank</strong><br>Account Name: Benefit Financial Bank Operations<br>SWIFT/BIC: BFBBUS33<br>IBAN: GB29NWBK60161331926819<br><br><span style="color:#d97706">⚠ Please include your wallet address as the transfer reference. Funds credited within 1–3 business days after admin approval.</span>',
-  paypal: '<strong style="color:var(--navy)">PayPal Deposit</strong><br>PayPal Email: <strong>deposits@benefitfinbnk.com</strong><br><br>Send your payment via PayPal to the address above, then click "Continue to Deposit" to submit your request. Include your Benefit Financial Bank wallet address in the PayPal note.<br><br><span style="color:#d97706">⚠ PayPal deposits are reviewed within 24 hours.</span>',
-  bitcoin: '<strong style="color:var(--navy)">Bitcoin (BTC) Deposit</strong><br>Wallet Address:<br><code style="background:#f1f5f9;padding:4px 8px;border-radius:6px;font-size:12px;word-break:break-all;display:block;margin:6px 0">'+WALLET_ADDRESS+'</code>Network: Bitcoin (BTC) Mainnet only<br><br><span style="color:#d97706">⚠ Send only BTC to the wallet address above. After sending, click "Continue to Deposit" so admin can verify and credit your account. Confirmations may take up to 1 hour.</span>'
+let DEP_METHOD_INFO = {}; // id -> method row loaded from the DB; fallbacks below only fill gaps for a method missing from the response
+const DEP_FALLBACK = {
+  bank_transfer: { bank_name: 'Benefit International Bank', account_name: 'Benefit Financial Bank Operations', swift_bic: 'BFBBUS33', iban: 'GB29NWBK60161331926819', instructions: 'Please include your wallet address as the transfer reference. Funds are credited within  ́1–́3 business days after admin approval.' },
+  paypal: { paypal_email: 'deposits@benefitfinbnk.com', instructions: 'Send your payment via PayPal to the address above, then click ""Continue to Deposit"" to submit your request. Include your Benefit Financial Bank wallet address in the PayPal note. PayPal deposits are reviewed within  ́24 hours.' },
+  bitcoin: { wallet_address: WALLET_ADDRESS, network: 'Bitcoin (BTC) Mainnet', instructions: 'Send only BTC to the wallet address above. After sending, click ""Continue to Deposit"" so admin can verify and credit your account. Confirmations may take up to 1 hour.' }
 };
+
+function pmRow(id) { return (pmActive && pmActive[id]) ? pmActive[id] : (DEP_FALLBACK[id] || {}); }
+function pmEsc(s) { s = (s===null||s===undefined)?'':String(s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function pmCopyBtn(text, label) {
+  return '<button class="dep-chip" onclick="copyTextToClipboard(this,' + JSON.stringify(text) + ')">' + (label||'Copy') + '</button>';
+}
+function copyTextToClipboard(el, text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(function(){ showAlert('dep-ok', 'Copied to clipboard.'); }, function(){ fallbackCopy(text); }); } else { fallbackCopy(text); }
+}
+
+async function loadActivePaymentMethods() {
+  try {
+    const { data, error } = await sb.rpc('get_active_payment_methods');
+    if (error) { console.warn('get_active_payment_methods:', error.message); return; }
+    if (Array.isArray(data) && data.length) pmActive = {};
+    data.forEach(function(r){ pmActive[r.id] = r; });
+    pmLoaded = true;
+    const btc = pmActive && pmActive.bitcoin;
+    if (btc && btc.wallet_address) {
+      const el = document.getElementById('dep-acct-num');
+      if (el) el.textContent = btc.wallet_address;
+    }
+    if (depMethod) {
+      const el = document.getElementById('dep-method-details');
+      if (el) el.innerHTML = buildMethodHTML(depMethod);
+    }
+    var anyVisible = false;
+    document.querySelectorAll('.dep-method').forEach(function(tile){
+      const id = tile.getAttribute('data-method');
+      const on = pmActive && pmActive[id];
+      tile.style.display = on ? '' : 'none';
+      if (on) anyVisible = true;
+    });
+    const btcBox = document.getElementById('dep-btc-box');
+    if (btcBox) btcBox.style.display = (pmActive && pmActive.bitcoin) ? '' : 'none';
+    const detailsEl = document.getElementById('dep-method-details');
+    if (!anyVisible) {
+      if (detailsEl) detailsEl.innerHTML = '<strong style="color:var(--navy)">No payment methods are currently enabled. Please contact support.</strong>';
+    } else {
+      const sel = document.querySelector('.dep-method[data-method="' + depMethod + '"]');
+      const tiles = Array.from(document.querySelectorAll('.dep-method'));
+      const vis = sel && sel.style.display !== 'none' ? sel : tiles.find(function(m){ return m.style.display !== 'none'; });
+      if (vis) selectDepMethod(vis, vis.getAttribute('data-method'));
+    }
+  } catch (e) { console.warn('get_active_payment_methods threw:', e); }
+}
+
+function buildMethodHTML(method) {
+  const r = pmRow(method);
+  if (method === 'bank_transfer') {
+    const lines = [];
+    const kv = function(k, l) {
+      if (r[k] && String(r[k]).trim()) {
+        lines.push('<div style="margin-bottom:6px"><strong style="color:var(--navy)">' + l + ':</strong> <span style="font-family:monospace;font-size:12px;word-break:break-all">' + pmEsc(r[k]) + '</span> ' + pmCopyBtn(r[k]) + '</div>');
+      }
+    };
+    lines.push('<strong style="color:var(--navy)">Bank Transfer Details</strong><br>');
+    kv('bank_name', 'Bank');
+    kv('account_name', 'Account Name');
+    kv('account_number', 'Account Number');
+    kv('swift_bic', 'SWIFT/BIC');
+    kv('iban', 'IBAN');
+    kv('bank_address', 'Bank Address');
+    kv('currency', 'Currency');
+    if (r.instructions && String(r.instructions).trim()) lines.push('<div style="margin-top:8px;color:#d97706">⚠ ' + pmEsc(r.instructions) + '</div>');
+    return lines.join('');
+  }
+  if (method === 'paypal') {
+    return '<strong style="color:var(--navy)">PayPal Deposit</strong><br>' +
+      'PayPal Email: <strong style="font-family:monospace;font-size:13px;word-break:break-all;display:inline-block;margin-right:8px">' + pmEsc(r.paypal_email) + '</strong>' + pmCopyBtn(r.paypal_email) +
+      (r.instructions && String(r.instructions).trim() ? '<br><br><span style="color:#d97706">⚠ ' + pmEsc(r.instructions) + '</span>' : '');
+  }
+  return '<strong style="color:var(--navy)">Bitcoin (BTC) Deposit</strong><br>Wallet Address:<br><code style="background:#f1f5f9;padding:4px 8px;border-radius:6px;font-size:12px;word-break:break-all;display:block;margin:6px 0">' + pmEsc(r.wallet_address) + '</code>' +
+    (r.network && String(r.network).trim() ? '<div style="margin-top:6px">Network: <strong>' + pmEsc(r.network) + '</strong></div>' : '') +
+    '<div style="margin-top:8px">' + pmCopyBtn(r.wallet_address, 'Copy Wallet Address') + '</div>' +
+    (r.instructions && String(r.instructions).trim() ? '<br><span style="color:#d97706">⚠ ' + pmEsc(r.instructions) + '</span>' : '');
+}
 
 function selectDepMethod(el, method) {
   depMethod = method;
   document.querySelectorAll('.dep-method').forEach(function(m){ m.classList.remove('selected'); });
   el.classList.add('selected');
-  document.getElementById('dep-method-details').innerHTML = DEP_METHOD_INFO[method];
+  document.getElementById('dep-method-details').innerHTML = buildMethodHTML(method);
 }
 
 function copyWallet() {
-  var text = WALLET_ADDRESS;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(function(){ showAlert('dep-ok', 'Wallet address copied to clipboard.'); }, function(){ fallbackCopy(text); });
-  } else { fallbackCopy(text); }
+  var text = pmBtcWallet();
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(function(){ showAlert('dep-ok', 'Wallet address copied to clipboard.'); }, function(){ fallbackCopy(text); }); } else { fallbackCopy(text); }
 }
 function fallbackCopy(text) {
   var ta = document.createElement('textarea');
