@@ -7,5 +7,12 @@ Every push to `main` automatically:
 2. Frontend is deployed by Vercel's own Git integration (the CI `vercel deploy`
    job was removed — it duplicated the integration and failed on every run).
 
-Last updated: 2026-08-19
+## Railway runtime (2026-09-06)
+- Railway start command: `node serve.js` (Node 22 via Nixpacks; PHP/php81
+  removed — the `php -S` build crashed before Railway could register the app,
+  leaving the site on railway `x-railway-fallback`{Application not found}).
+- `serve.js` serves `public/` with the clean-URL rewrites, vendors the Supabase
+  SDK, and rewrites/serves the hosted Supabase URL/anon key at serve time.
+
+Last updated: 2026-09-06
 
