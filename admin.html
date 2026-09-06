@@ -409,10 +409,10 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
             <table class="tbl">
               <thead><tr>
                 <th>User</th><th>Account</th><th>Balance</th><th>Held</th>
-                <th>Status</th><th>KYC</th><th>Joined</th>
+                <th>Status</th><th>KYC</th><th>Joined</th><th>Wire</th>
               </tr></thead>
               <tbody id="users-tbody">
-                <tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Loading users...</div></div></td></tr>
+                <tr><td colspan="8"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Loading users...</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -1164,7 +1164,14 @@ return out
 }
 async function showWireSettings(targetUid) {
 const who = targetUid || wireUserTarget()
-if (!who) { showAlert('ws-err', 'Select a user first.'); return }
+// Guard: if the user list hasn't finished loading, the modal would silently
+// appear empty and saving would target nothing. Make the failing obvious instead.
+if (!who) {
+  const err = document.getElementById('ws-err')
+  if (err) { err.style.display='block'; err.textContent='No target user selected. Make sure the All Users list has loaded, then pick a user — or click Configure on a user row. If the list is empty,check the admin user-management RPCs per the banner above.'; }
+  openModal('modal-wire-settings')
+  return
+}
 selectedUserId = who
 const wf = await wireLoad(who)
 document.getElementById('ws-enabled').value = wf && wf.enabled ? 'true' : 'false'
@@ -1173,8 +1180,7 @@ document.getElementById('ws-tax-code').value = (wf && wf.tax) || ''
 document.getElementById('ws-release-code').value = (wf && wf.release) || ''
 const u = allUsers.find(x => x.id === who) || {}
 const note = document.getElementById('ws-note')
-note.style.display = 'block'
-note.textContent = 'Codes for ' + (u.full_name || u.email || 'this user') + '。 Save assigns them; use Regenerate, Email, or Chat to share them with the user.'
+if (note) { note.style.display = 'block'; note.textContent = 'Codes for ' + (u.full_name || u.email || 'this user') + '。 Save assigns them; use Regenerate, Email, or Chat to share them with the user.'; }
 document.getElementById('ws-err').style.display = 'none'
 document.getElementById('ws-ok').style.display = 'none'
 renderWireSettingsState()
@@ -1436,7 +1442,7 @@ function hideUsersAlert() {
 
 function renderUsers(users) {
   const tb = document.getElementById('users-tbody');
-  if (!users.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No users found</div></div></td></tr>'; return; }
+  if (!users.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No users found</div></div></td></tr>'; return; }
   tb.innerHTML = users.map(u => `
     <tr class="clickable" onclick="openUserModal('${u.id}')">
       <td>
@@ -1454,6 +1460,7 @@ function renderUsers(users) {
       <td><span class="badge badge-${u.status}">${u.status}</span></td>
       <td><span class="badge badge-${u.kyc_status||'unverified'}">${u.kyc_status||'unverified'}</span></td>
       <td>${new Date(u.created_at).toLocaleDateString()}</td>
+      <td><button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();showWireSettings('${u.id}');">🌐 Configure</button></td>
     </tr>`).join('');
 }
 

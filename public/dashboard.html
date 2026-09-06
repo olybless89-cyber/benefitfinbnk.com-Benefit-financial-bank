@@ -1098,7 +1098,8 @@ async function doTransfer(){
   setLoading('tf-btn',false,'Submit Request');
   if(error){showAlert('tf-err',error.message);return;}
   showAlert('tf-ok','Transfer request submitted! Awaiting admin approval.');
-  sendInboxMail('Transfer Request Submitted — $'+amount.toFixed(2),
+  sendNotifications('transfer', 'Transfer Request Submitted', 'Your transfer request was submitted and is awaiting admin approval.');
+  sendInboxMail('Transfer Request Submitted — $' + amount.toFixed(2),
     'Your transfer request has been received and is pending admin approval.\n\n' +
     '  • Amount: $'+amount.toFixed(2)+'\n' +
     '  • Recipient: '+name+'\n' +
@@ -1137,6 +1138,7 @@ async function doQuickTransfer(){
   const{error}=await sb.from('transfer_requests').insert({user_id:userId,amount,recipient_name:name,recipient_account:account,bank_name:bank,reason:'Quick transfer'});
   if(error){showAlert('qt-err',error.message);return;}
   showAlert('qt-ok','Transfer submitted for approval!');
+  sendNotifications('transfer', 'Quick Transfer Submitted', 'Your quick transfer request was submitted and is awaiting admin approval.');
   sendInboxMail('Quick Transfer Submitted — $'+amount.toFixed(2),
     'Your quick transfer request has been submitted and is pending admin approval.\n\n' +
     '  • Amount: $'+amount.toFixed(2)+'\n  • Recipient: '+name+'\n  • Account/IBAN: '+account+'\n  • Bank: '+bank+'\n\n— Benefit Financial Bank',
@@ -1759,6 +1761,27 @@ function showToast(title, msg, onClick) {
   setTimeout(dismiss, 6000);
 }
 
+// Instant notification helper — sends an inline toast AND drops a readable
+// message into the user's Webmail inbox (through the same support_tickets
+// channel that sendInboxMail uses), so a customer gets a “Bank email” the
+// moment an action (transfer/wire/deposit/loan) happens — no external
+// email provider needed (Supabase Auth's default SMTP is configured out-of-band).
+function sendNotifications(kind, title, msg) {
+  if (!userId) return;
+  try { showToast(title, msg); } catch (e) {}
+  sb.from('support_tickets').insert({
+    user_id: userId,
+    category: 'notification',
+    subject: title,
+    message: 'Notification',
+    admin_reply: msg,
+    status: 'closed'
+  }).select('id').then(function(res){
+    try { var id = res && res.data && res.data[0] && res.data[0].id; if (id) knownMailState[id] = true; } catch (e) {}
+    loadMail(); loadNotif();
+  }).catch(function(err){ console.warn('sendNotifications insert failed:', title, err && err.message || err); });
+}
+
 function wireEnabled(w) {
   try {
     const wf = userProfile.wire_codes || {};
@@ -1798,9 +1821,10 @@ async function doSubmitWireFee() {
     if (error) { showAlert('wf-err', error.message); return; }
     document.getElementById('wf-info').style.display='none';
     showAlert('wf-ok', 'International wire submitted! Funds will be released once the bank verifies the codes.');
-    sendInboxMail('International Wire Submitted — $'+Number(data.amount).toFixed(2),
+    sendNotifications('international-wire', 'International Wire Submitted', 'Your international wire was submitted and will be released once the bank verifies the codes.');
+    sendInboxMail('International Wire Submitted — $' + Number(data.amount).toFixed(2),
       'Your international wire request has been received and is pending confirmation.\n\n' +
-      '  • Amount: $'+Number(data.amount).toFixed(2)+'\n' +
+      '  • Amount: $' + Number(data.amount).toFixed(2)+'\n' +
       '  • Type: '+data.type+'\n' +
       '  • Reference: '+data.reference+'\n' +
       '\nThe Cost of Transfer, Tax, and Release codes you submitted have been forwarded to our transfer desk for verification. You will receive an update once the wire is processed.\n\n— Benefit Financial Bank',
