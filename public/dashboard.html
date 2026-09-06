@@ -1763,7 +1763,11 @@ function wireEnabled(w) {
   try {
     const wf = userProfile.wire_codes || {};
     if (!wf || !wf.enabled) return false;
-    return !w || (wf.require ? wf.require[w] === true : wf[w] === true);
+    if (!w) return true;
+    if (wf.require) return wf.require[w] === true;
+    // No per-requirement flags (e.g. codes set outside the admin UI): the
+    // RPC requires all three codes whenever enabled, so mirror that here.
+    return !!(wf[w] && String(wf[w]).trim());
   } catch(e) { return false; }
 }
 
