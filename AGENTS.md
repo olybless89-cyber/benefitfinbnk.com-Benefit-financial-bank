@@ -544,3 +544,18 @@ per-service Build settings in the Railway dashboard (not just
 `railway.json`) are the place to force the builder/provider, since the
 committed `railway.json` builder value did not stop the platform from
 picking Railpack here.
+
+## Railway build failure #2: nodejs_22 doesn't exist in the pinned nixpkgs snapshot (2026-09-07)
+After removing the stray composer.json (above), the build got further but
+failed at the Nix install step:
+
+  error: undefined variable 'nodejs_22'
+  at /app/.nixpacks/nixpkgs-5148520bfab61f99fd25fb9ff7bfbb50dad3c9db.nix:19:9
+
+Checked the actual pinned nixpkgs commit
+(github.com/NixOS/nixpkgs/blob/5148520bfab61f99fd25fb9ff7bfbb50dad3c9db/pkgs/top-level/all-packages.nix):
+it defines nodejs_14/16/18/20 (nodejs_latest = nodejs_20) but Node 22 postdates
+this snapshot, so nodejs_22 genuinely does not exist there — this wasn't a
+transient issue. Fixed nixpacks.toml to request nodejs_20 instead. serve.js
+uses only long-stable core Node APIs (http, fs, path, url; no fetch or other
+Node-22-only globals), so Node 20 runs it identically.
