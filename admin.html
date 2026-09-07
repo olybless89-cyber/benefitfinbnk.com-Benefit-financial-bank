@@ -1083,11 +1083,9 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <div id="ws-user-chip" style="display:none;margin-top:8px;background:#0a1f3a;border:1px solid #1e3a5f;border-radius:8px;padding:8px 12px;font-size:13px;color:#cbd5e1;line-height:1.55"></div>
       </div>
       <div class="info-note" id="ws-note" style="display:none;background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Enable any of the three International Wire requirements below — the transfer only needs codes for the toggles that are <strong>ON</strong>. Each code is generated per user and can be shared via Live Chat or Email.</div>
-      <div class="form-group"><label class="form-label">Global On/Off</label>
-        <select class="form-select" id="ws-enabled" onchange="renderWireSettingsState()">
-          <option value="true">ON — users must enter required wire codes</option>
-          <option value="false">OFF — wire codes disabled (normal transfer flow)</option>
-        </select>
+      <div class="form-group"><label class="form-label">Status</label>
+        <div id="ws-status" style="font-size:13px;padding:10px 12px;border-radius:8px;background:#0b1120;border:1.5px solid #1e2d4a;color:#93c5fd">Inactive — normal transfer flow (no code required).</div>
+        <input type="hidden" id="ws-enabled" value="false">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
         <div class="wire-toggle" data-key="cost" style="background:#0b1120;border:1.5px solid #1e2d4a;border-radius:12px;padding:14px;cursor:pointer" onclick="toggleWireReq('cost')">
@@ -1133,7 +1131,7 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
     <div class="modal-header"><div class="modal-title">🔐 Wire Codes — Ready to Share</div><button class="modal-close" onclick="closeModal('modal-wire-codes-share')">✕</button></div>
     <div class="modal-body">
       <div class="info-note" id="wcs-user-note" style="background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Copy these and send them to the customer yourself — by real email, live chat, phone, however you normally reach them. Nothing here is sent automatically.</div>
-      <div class="info-note" id="wcs-off-warning" style="display:none;background:#3a1f0a;border:1px solid #5f3a1e;color:#fbbf24;margin-top:10px">⚠️ Wire codes are currently <strong>OFF</strong> for this customer (Global On/Off). They won't be asked for these codes until you switch it ON and save.</div>
+      <div class="info-note" id="wcs-off-warning" style="display:none;background:#3a1f0a;border:1px solid #5f3a1e;color:#fbbf24;margin-top:10px">⚠️ No code is currently required for this customer. Turn ON at least one of Cost/Tax/Release above and save for these codes to actually be requested.</div>
       <div id="wcs-rows" style="display:flex;flex-direction:column;gap:10px;margin:16px 0"></div>
       <div class="alert alert-ok" id="wcs-copied" style="display:none">Copied to clipboard.</div>
       <button class="btn btn-primary" style="width:100%" onclick="copyAllWireCodes()">📋 Copy All Codes</button>
@@ -1415,7 +1413,21 @@ async function loadWireSettingsForSelected() {
   if (!who) return;
  const wf = await wireLoad(who, true)
  if (selectedUserId !== who) return; // user switched while loading — discard stale
- document.getElementById('ws-enabled').value = wf && wf.enabled ? 'true' : 'false'
+ // Restore the per-code ON/OFF badges from what's actually saved for this
+ // user. This MUST happen before syncWireEnabledFromToggles() below, and
+ // before any Save — otherwise the badges silently show OFF for a user who
+ // already has an active requirement, and a resave without re-clicking them
+ // would wipe the requirement out.
+ const req = (wf && wf.require && typeof wf.require === 'object') ? wf.require : null
+ const legacyAllOn = !req && !!(wf && wf.enabled) // configs saved before per-code toggles existed
+ ;['cost', 'tax', 'release'].forEach(function (key) {
+   const el = document.getElementById('ws-req-' + key)
+   if (!el) return
+   const on = req ? (req[key] === true) : legacyAllOn
+   el.classList.toggle('badge-active', on)
+   el.classList.toggle('badge-inactive', !on)
+   el.textContent = on ? 'ON' : 'OFF'
+ })
  document.getElementById('ws-cost-code').value = (wf && wf.cost) || ''
  document.getElementById('ws-tax-code').value = (wf && wf.tax) || ''
  document.getElementById('ws-release-code').value = (wf && wf.release) || ''
@@ -1430,7 +1442,7 @@ async function loadWireSettingsForSelected() {
  document.getElementById('ws-ok').style.display = 'none'
  document.getElementById('ws-select-note').style.display = 'none'
  wsRefreshButtons()
- renderWireSettingsState()
+ syncWireEnabledFromToggles()
 }
 function wsRenderSelectedChip(u) {
   if (!u) return
@@ -1477,6 +1489,7 @@ function resetWireSettingsState() {
  document.getElementById('ws-ok').style.display = 'none'
  document.getElementById('ws-select-note').style.display = 'block'
  wsRefreshButtons()
+ syncWireEnabledFromToggles()
 }
 function wsRefreshButtons() {
  const hasSel = !!selectedUserId;
@@ -1501,6 +1514,27 @@ const on = el.classList.contains('badge-active')
 el.classList.toggle('badge-active')
 el.classList.toggle('badge-inactive')
 el.textContent = on ? 'OFF' : 'ON'
+syncWireEnabledFromToggles()
+}
+// There is no separate master switch anymore — a code is "active" for this
+// user the moment any of the three toggles above is ON. This keeps ws-enabled
+// (still read by wireCollectSettings/wireReqOn/etc.) truthful automatically,
+// instead of relying on an admin to also flip a second control (that gap was
+// the root cause of codes being saved but never actually requested).
+function syncWireEnabledFromToggles() {
+  const any = ['cost', 'tax', 'release'].some(function (k) {
+    const el = document.getElementById('ws-req-' + k)
+    return el && el.classList.contains('badge-active')
+  })
+  const sel = document.getElementById('ws-enabled')
+  if (sel) sel.value = any ? 'true' : 'false'
+  const status = document.getElementById('ws-status')
+  if (status) {
+    status.textContent = any
+      ? 'Active — the customer will be required to enter the code(s) toggled ON below.'
+      : 'Inactive — normal transfer flow (no code required).'
+    status.style.color = any ? '#4ade80' : '#93c5fd'
+  }
 }
 function wireReqOn(key) {
   const enabled = document.getElementById('ws-enabled').value === 'true'
