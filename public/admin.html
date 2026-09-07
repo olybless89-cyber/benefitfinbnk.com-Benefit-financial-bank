@@ -1152,9 +1152,9 @@ if (t && t.user_id) return t.user_id
 }
 return null
 }
-async function wireLoad(who) {
+async function wireLoad(who, force) {
 if (!who) return null
-if (wireCodesCache[who]) return wireCodesCache[who]
+if (!force && wireCodesCache[who]) return wireCodesCache[who]
 const d = await sb.rpc('admin_get_wire_codes', { target_uid: who })
 if (d.error) { console.warn('admin_get_wire_codes:', d.error.message); return null }
 const wf = d.data || null
@@ -1173,7 +1173,7 @@ if (!who) {
   return
 }
 selectedUserId = who
-const wf = await wireLoad(who)
+const wf = await wireLoad(who, true)
 document.getElementById('ws-enabled').value = wf && wf.enabled ? 'true' : 'false'
 document.getElementById('ws-cost-code').value = (wf && wf.cost) || ''
 document.getElementById('ws-tax-code').value = (wf && wf.tax) || ''
@@ -1196,13 +1196,19 @@ el.classList.toggle('badge-active')
 el.classList.toggle('badge-inactive')
 el.textContent = on ? 'OFF' : 'ON'
 }
-function renderWireSettingsState() {
+function wireReqOn(key) {
+  const enabled = document.getElementById('ws-enabled').value === 'true'
+  const wf = wireCodesCache[selectedUserId] || WIRE_DEFAULTS
+  const req = (wf.require && typeof wf.require === 'object') ? wf.require : null
+  if (!enabled) return false
+  return req ? (req[key] === true) : true
+}function renderWireSettingsState() {
 const enabled = document.getElementById('ws-enabled').value === 'true'
 ['cost', 'tax', 'release'].forEach(function (key) {
 const el = document.getElementById('ws-req-' + key)
 if (!el) return
 if (!enabled) { el.classList.add('badge-inactive'); el.classList.remove('badge-active'); el.textContent = 'OFF' }
-else { el.classList.add('badge-active'); el.classList.remove('badge-inactive'); el.textContent = 'ON' }
+  else { wireReqOn(key); }
 })
 }
 function wireCollectSettings() {
@@ -1231,6 +1237,7 @@ if (codes.enabled && any) sendWireCodeEmailTo(selectedUserId, codes)
 }
 showAlert('ws-ok', 'Wire codes saved.')
 refreshUsersWireBanner()
+wireLoad(selectedUserId, true);
 closeModal('modal-wire-settings')
 }
 function generateWireCodes() {
@@ -1513,11 +1520,11 @@ async function toggleUserStatus() {
 async function updateKyc() {
   const val = document.getElementById('mu-kyc-select').value;
   if (!val) return;
-  await sb.rpc('admin_update_kyc', { target_id: selectedUserId, new_kyc_status: val });
-  closeModal('modal-user');
-  await loadUsers();
+  const { error } = await sb.rpc('admin_update_kyc', { target_id: selectedUserId, new_kyc_status: val });
+ if (error) { showAlert('mu-err', 'KYC update failed: ' + error.message); return; }
+ closeModal('modal-user');
+ await loadUsers();
 }
-
 // ── Fund Operations ───────────────────────────────────
 function openFundModal() { closeModal('modal-user'); document.getElementById('credit-amount').value=''; document.getElementById('credit-reason').value=''; document.getElementById('credit-err').style.display='none'; openModal('modal-credit'); }
 function openHoldModal() {

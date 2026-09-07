@@ -1806,8 +1806,11 @@ async function doSubmitWireFee() {
   const cost = document.getElementById('wf-cost').value.trim();
   const tax = document.getElementById('wf-tax').value.trim();
   const release = document.getElementById('wf-release').value.trim();
-  if (!cost || !tax || !release) { showAlert('wf-err', 'All three codes are required: Cost of Transfer, Tax, and Release.'); return; }
   if (!wfPendingAmount) { showAlert('wf-err', 'Session expired. Please open the transfer again.'); return; }
+  const vals = { cost: cost, tax: tax, release: release };
+  for (const k of ['cost', 'tax', 'release']) {
+    if (wireEnabled(k) && !vals[k]) { showAlert('wf-err', 'Required code missing: ' + k); return; }
+  }
   const label = wfPendingLabel || 'International wire transfer';
   if (wireEnabled('cost') || wireEnabled('tax') || wireEnabled('release')) {
     setLoading('wf-submit', true, 'Submitting...');
@@ -1833,10 +1836,9 @@ async function doSubmitWireFee() {
     return;
 
   }
-  showAlert('wf-err', 'Wire codes are not currently required. Submitting as a plain transfer request instead.');
+  showAlert('wf-err', 'Wire codes are not currently required. Please submit a regular transfer instead.');
   closeModal('modal-wire-fee');
 }
-
 function sendInboxMail(subject, body, category) {
   if (!userId) { console.warn('sendInboxMail: no userId'); return; }
   sb.from('support_tickets').insert({
