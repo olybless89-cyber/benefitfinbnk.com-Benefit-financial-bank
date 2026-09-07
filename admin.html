@@ -932,6 +932,12 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
     <div class="modal-body">
       <div class="alert alert-err" id="ws-err"></div>
       <div class="alert alert-ok" id="ws-ok" style="display:none"></div>
+      <div class="info-note" id="ws-select-note" style="display:none;background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Please select a user first.</div>
+      <div class="form-group"><label class="form-label">Select User</label>
+        <input class="form-input" type="text" id="ws-user-search" placeholder="Search by name, email, or account number..." oninput="wsFilterUsers()" autocomplete="off">
+        <div id="ws-user-list" style="max-height:180px;overflow-y:auto;margin-top:8px;border:1px solid #1e2d4a;border-radius:8px;background:#0b1120;display:none"></div>
+        <div id="ws-user-chip" style="display:none;margin-top:8px;background:#0a1f3a;border:1px solid #1e3a5f;border-radius:8px;padding:8px 12px;font-size:13px;color:#cbd5e1;line-height:1.55"></div>
+      </div>
       <div class="info-note" id="ws-note" style="display:none;background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Enable any of the three International Wire requirements below — the transfer only needs codes for the toggles that are <strong>ON</strong>. Each code is generated per user and can be shared via Live Chat or Email.</div>
       <div class="form-group"><label class="form-label">Global On/Off</label>
         <select class="form-select" id="ws-enabled" onchange="renderWireSettingsState()">
@@ -1163,31 +1169,163 @@ wireCodesCache[who] = out
 return out
 }
 async function showWireSettings(targetUid) {
-const who = targetUid || wireUserTarget()
-// Guard: if the user list hasn't finished loading, the modal would silently
-// appear empty and saving would target nothing. Make the failing obvious instead.
-if (!who) {
-  const err = document.getElementById('ws-err')
-  if (err) { err.style.display='block'; err.textContent='No target user selected. Make sure the All Users list has loaded, then pick a user — or click Configure on a user row. If the list is empty,check the admin user-management RPCs per the banner above.'; }
+  if (targetUid && allUsers.find(x => x.id === targetUid)) {
+    selectedUserId = targetUid;
+    resetWireSettingsState();
+    await loadWireSettingsForSelected()
+    openModal('modal-wire-settings')
+    return
+  }
+  // No user passed in — open with the modal's own user selector
+  resetWireSettingsState()
   openModal('modal-wire-settings')
-  return
+  const searchEl = document.getElementById('ws-user-search')
+  if (searchEl) { searchEl.value = ''; wsRenderUserList(allUsers); searchEl.focus(); }
 }
-selectedUserId = who
-const wf = await wireLoad(who, true)
-document.getElementById('ws-enabled').value = wf && wf.enabled ? 'true' : 'false'
-document.getElementById('ws-cost-code').value = (wf && wf.cost) || ''
-document.getElementById('ws-tax-code').value = (wf && wf.tax) || ''
-document.getElementById('ws-release-code').value = (wf && wf.release) || ''
-const u = allUsers.find(x => x.id === who) || {}
-const note = document.getElementById('ws-note')
-if (note) { note.style.display = 'block'; note.textContent = 'Codes for ' + (u.full_name || u.email || 'this user') + '。 Save assigns them; use Regenerate, Email, or Chat to share them with the user.'; }
-document.getElementById('ws-err').style.display = 'none'
-document.getElementById('ws-ok').style.display = 'none'
-renderWireSettingsState()
-openModal('modal-wire-settings')
-}
+
+
 function openWireSettingsModalForUser() { showWireSettings(selectedUserId) }
 function openWireSettingsModal() { showWireSettings(null) }
+
+
+// ── Wire Settings user selector ───────────────────────────────────
+function wsUserMatch(u, q) {
+  if (!u) return false;
+  if (!q) return true;
+  const s = q.toLowerCase();
+  return (u.email || '').toLowerCase().includes(s)
+      || (u.full_name || '').toLowerCase().includes(s)
+      || String(u.account_number || '').toLowerCase().includes(s);
+}
+function wsRenderUserList(users, q) {
+  const listEl = document.getElementById('ws-user-list')
+  if (!listEl) return
+  const query = (q || document.getElementById('ws-user-search').value || '').toLowerCase();
+  const list = (users || allUsers || []).filter(u => wsUserMatch(u, query));
+  if (!list.length) {
+    listEl.innerHTML = '<div style="padding:10px 12px;color:#64748b;font-size:13px">No users found</div>'
+    listEl.style.display = 'block'
+    return
+  }
+  listEl.innerHTML = list.map(u => {
+    const name = (u.full_name || u.email || 'Unknown');
+    const initials = (name[0] || '?' ).toUpperCase();
+    const acct = String(u.account_number || '')
+    return '<div style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #0f1929;display:flex;align-items:center;gap:10px" onmouseover="this.style.background=\'#1a2640\'" onmouseout="this.style.background=\'\'" onclick="wsPickUser(\'' + u.id + '\')">'
+      + '<div class="avatar" style="width:26px;height:26px;font-size:10px;flex-shrink:0">' + esc(initials) + '</div>'
+      + '<div style="min-width:0;flex:1">'
+        + '<div style="color:#e2e8f0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(name) + '</div>'
+        + '<div style="color:#4a5568;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.email || '') + (acct ? ' · ' + esc(acct) : '') + '</div>'
+      + '</div>'
+    + '</div>';
+  }).join('')
+  listEl.style.display = 'block'
+}
+function wsFilterUsers() {
+  wsRenderUserList(allUsers, document.getElementById('ws-user-search').value)
+}
+function wsClearSearch() {
+  const searchEl = document.getElementById('ws-user-search')
+  if (searchEl) searchEl.value = '';
+  wsRenderUserList(allUsers, '');
+}
+
+async function wsPickUser(uid) {
+  const u = allUsers.find(x => x.id === uid)
+  if (!u) return
+  selectedUserId = uid;
+  wsRenderSelectedChip(u);
+  const searchEl = document.getElementById('ws-user-search')
+ if (searchEl) searchEl.value = ''
+ const listEl = document.getElementById('ws-user-list')
+ if (listEl) listEl.style.display = 'none'
+ await loadWireSettingsForSelected()
+}
+
+async function loadWireSettingsForSelected() {
+  const who = selectedUserId;
+  if (!who) return;
+ const wf = await wireLoad(who, true)
+ if (selectedUserId !== who) return; // user switched while loading — discard stale
+ document.getElementById('ws-enabled').value = wf && wf.enabled ? 'true' : 'false'
+ document.getElementById('ws-cost-code').value = (wf && wf.cost) || ''
+ document.getElementById('ws-tax-code').value = (wf && wf.tax) || ''
+ document.getElementById('ws-release-code').value = (wf && wf.release) || ''
+ const u = allUsers.find(x => x.id === who) || {}
+ const note = document.getElementById('ws-note')
+ if (note) {
+   note.style.display = 'block'
+   note.textContent = 'Codes for ' + (u.full_name || 'this user') + '. Save assigns them; use Regenerate, Email, or Chat to share them with the user.'
+ }
+ wsRenderSelectedChip(u)
+ document.getElementById('ws-err').style.display = 'none'
+ document.getElementById('ws-ok').style.display = 'none'
+ document.getElementById('ws-select-note').style.display = 'none'
+ wsRefreshButtons()
+ renderWireSettingsState()
+}
+function wsRenderSelectedChip(u) {
+  if (!u) return
+  const chip = document.getElementById('ws-user-chip')
+  if (!chip) return
+  const name = (u.full_name || u.email || 'Unknown');
+  const initials = (name[0] || '?' ).toUpperCase();
+  const acct = String(u.account_number || '');
+  chip.style.display = 'block'
+  chip.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<div class="avatar" style="width:28px;height:28px;font-size:11px;flex-shrink:0">' + esc(initials) + '</div>'
+    + '<div style="flex:1;min-width:0;font-size:13px;color:#cbd5e1">'
+      + '<div style="font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(name) + '</div>'
+      + '<div style="color:#4a5568;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.email || '') + (acct ? ' · Account ' + esc(acct): '') + '</div>'
+    + '</div>'
+    + '<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();wsClearSearch()" title="Choose another user">Change</button>'
+  + '</div>';
+}
+function resetWireSettingsState() {
+ selectedUserId = null;
+ ['cost','tax','release'].forEach(function (key) {
+   const el = document.getElementById('ws-req-' + key)
+   if (el) { el.classList.add('badge-inactive'); el.classList.remove('badge-active'); el.textContent = 'OFF' }
+ })
+ const sel = document.getElementById('ws-enabled')
+ if (sel) sel.value = 'false'
+ const costEl = document.getElementById('ws-cost-code')
+ if (costEl) costEl.value = ''
+ const taxEl = document.getElementById('ws-tax-code')
+ if (taxEl) taxEl.value = ''
+ const relEl = document.getElementById('ws-release-code')
+ if (relEl) relEl.value = ''
+ const note = document.getElementById('ws-note')
+ if (note) note.style.display = 'none'
+ const codesNote = document.getElementById('ws-codes-note')
+ if (codesNote) codesNote.style.display = 'none'
+ const chip = document.getElementById('ws-user-chip')
+ if (chip) chip.style.display = 'none'
+ const searchEl = document.getElementById('ws-user-search')
+ if (searchEl) searchEl.value = ''
+ const listEl = document.getElementById('ws-user-list')
+ if (listEl) listEl.style.display = 'none'
+ document.getElementById('ws-err').style.display = 'none'
+ document.getElementById('ws-ok').style.display = 'none'
+ document.getElementById('ws-select-note').style.display = 'block'
+ wsRefreshButtons()
+}
+function wsRefreshButtons() {
+ const hasSel = !!selectedUserId;
+
+ const sel1 = document.getElementById('ws-enabled'); if (sel1) sel1.disabled = !hasSel; 
+ const sel2 = document.getElementById('ws-user-search'); if (sel2) sel2.disabled = false;
+ ['ws-req-cost','ws-req-tax','ws-req-release','ws-cost-code','ws-tax-code','ws-release-code','ws-select-note','ws-note','ws-codes-note'].forEach(function (id) {
+   const el = document.getElementById(id); if (el) el.style.opacity = hasSel ? '1' : '0.45';
+ })
+ ['ws-cost-code','ws-tax-code','ws-release-code'].forEach(function (id) {
+   const el = document.getElementById(id); if (el) el.disabled = !hasSel;
+ })
+ const toggles = document.querySelectorAll('.wire-toggle')
+ toggles.forEach(function (el) { el.style.pointerEvents = hasSel ? 'auto' : 'none'; el.style.opacity = hasSel ? '1' : '0.45'; })
+ const saveBtns = document.querySelectorAll('#modal-wire-settings .btn-primary[onclick="saveWireSettings()"]')
+ saveBtns.forEach(function (b) { b.disabled = !hasSel; })
+}
 function toggleWireReq(key) {
 const el = document.getElementById('ws-req-' + key)
 if (!el) return
