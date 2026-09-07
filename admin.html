@@ -435,11 +435,11 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
           <div class="overflow-x">
             <table class="tbl">
               <thead><tr>
-                <th>User</th><th>Card Number</th><th>Expiry</th><th>CVV</th>
+                <th>User</th><th>Card Number</th><th>Expiry</th><th>CVV</th><th>PIN</th>
                 <th>Status</th><th>Issued</th><th></th>
               </tr></thead>
               <tbody id="cards-tbody">
-                <tr><td colspan="7"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">Loading cards...</div></div></td></tr>
+                <tr><td colspan="8"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">Loading cards...</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -891,6 +891,7 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <div class="form-group" style="flex:1"><label class="form-label">Expiry Year</label><input class="form-input" type="number" id="ec-exp-year" min="2024" max="2099" placeholder="YYYY"></div>
         <div class="form-group" style="flex:1"><label class="form-label">CVV</label><input class="form-input" type="text" id="ec-cvv" maxlength="4" placeholder="123"></div>
       </div>
+      <div class="form-group"><label class="form-label">PIN</label><input class="form-input" type="text" id="ec-pin" maxlength="6" style="font-family:monospace;letter-spacing:2px;max-width:140px" placeholder="1234"></div>
       <div class="form-group"><label class="form-label">Status</label>
         <select class="form-select" id="ec-status">
           <option value="active">Active</option>
@@ -898,7 +899,7 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
           <option value="blocked">Blocked</option>
         </select>
       </div>
-      <div class="info-note">Freeze is a temporary hold the admin can lift anytime; Blocked is meant to be permanent (e.g. fraud, account closure). Both are fully independent of the user's KYC status.</div>
+      <div class="info-note">Freeze is a temporary hold the admin can lift anytime; Blocked is meant to be permanent (e.g. fraud, account closure). Both are fully independent of the user's KYC status. The PIN (like the CVV) isn't shown on the customer's dashboard — share it with them directly via email or Live Chat.</div>
     </div>
     <div class="modal-footer" style="justify-content:space-between">
       <button class="btn btn-warning btn-sm" onclick="doRegenerateCard()" id="ec-regen-btn">🔄 Regenerate Card</button>
@@ -2441,7 +2442,7 @@ function maskCardNumber(num) {
 async function loadCards() {
   const { data, error } = await sb.rpc('admin_get_all_cards');
   if (error) {
-    document.getElementById('cards-tbody').innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">' + esc(error.message || 'Could not load cards. Apply SQL/supabase/014_cards.sql if this RPC is missing.') + '</div></div></td></tr>';
+    document.getElementById('cards-tbody').innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">' + esc(error.message || 'Could not load cards. Apply SQL/supabase/014_cards.sql if this RPC is missing.') + '</div></div></td></tr>';
     return;
   }
   allCards = data || [];
@@ -2453,13 +2454,14 @@ function renderCards(cards) {
   allUsers.forEach(u => users[u.id] = (u.full_name || u.email));
   const tb = document.getElementById('cards-tbody');
   document.getElementById('card-count').textContent = cards.length ? `(${cards.length})` : '';
-  if (!cards.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">No cards issued yet</div></div></td></tr>'; return; }
+  if (!cards.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">No cards issued yet</div></div></td></tr>'; return; }
   tb.innerHTML = cards.map(c => `
     <tr>
       <td>${esc(users[c.user_id] || c.user_id.substring(0,8))}</td>
       <td style="font-family:monospace">${maskCardNumber(c.card_number)}</td>
       <td>${String(c.expiry_month).padStart(2,'0')}/${String(c.expiry_year).slice(-2)}</td>
       <td style="font-family:monospace">•••</td>
+      <td style="font-family:monospace">${'•'.repeat((c.pin||'').length || 4)}</td>
       <td><span class="badge badge-${c.status === 'active' ? 'active' : c.status === 'frozen' ? 'pending' : 'inactive'}">${c.status}</span></td>
       <td>${new Date(c.created_at).toLocaleDateString()}</td>
       <td><button type="button" class="btn btn-ghost btn-sm" onclick="openEditCardModal('${c.user_id}')">✏️ Manage</button></td>
@@ -2486,12 +2488,14 @@ function openEditCardModal(uid) {
     document.getElementById('ec-exp-month').value = c.expiry_month || '';
     document.getElementById('ec-exp-year').value = c.expiry_year || '';
     document.getElementById('ec-cvv').value = c.cvv || '';
+    document.getElementById('ec-pin').value = c.pin || '';
     document.getElementById('ec-status').value = c.status || 'active';
   } else {
     document.getElementById('ec-number').value = '';
     document.getElementById('ec-exp-month').value = '';
     document.getElementById('ec-exp-year').value = '';
     document.getElementById('ec-cvv').value = '';
+    document.getElementById('ec-pin').value = '';
     document.getElementById('ec-status').value = 'active';
   }
   openModal('modal-edit-card');
@@ -2509,11 +2513,13 @@ async function doSaveCard() {
   const month = parseInt(document.getElementById('ec-exp-month').value, 10);
   const year = parseInt(document.getElementById('ec-exp-year').value, 10);
   const cvv = document.getElementById('ec-cvv').value.trim();
+  const pin = document.getElementById('ec-pin').value.trim();
   const status = document.getElementById('ec-status').value;
   if (!number || regexDigitsOnly(number).length < 12) { showAlert('ec-err', 'Enter a valid card number.'); return; }
   if (!month || month < 1 || month > 12) { showAlert('ec-err', 'Enter a valid expiry month (1-12).'); return; }
   if (!year || year < 2024) { showAlert('ec-err', 'Enter a valid expiry year.'); return; }
   if (!cvv) { showAlert('ec-err', 'Enter a CVV.'); return; }
+  if (!pin || !/^\d{4}(\d{2})?$/.test(pin)) { showAlert('ec-err', 'Enter a 4 or 6 digit PIN.'); return; }
   setLoading('ec-save-btn', true, 'Saving...');
   const { error } = await sb.rpc('admin_update_card', {
     target_uid: ecTargetUid,
@@ -2521,7 +2527,8 @@ async function doSaveCard() {
     p_expiry_month: month,
     p_expiry_year: year,
     p_cvv: cvv,
-    p_status: status
+    p_status: status,
+    p_pin: pin
   });
   setLoading('ec-save-btn', false, 'Save Changes');
   if (error) { showAlert('ec-err', error.message); return; }
@@ -2542,6 +2549,7 @@ async function doRegenerateCard() {
     document.getElementById('ec-exp-month').value = data.expiry_month || '';
     document.getElementById('ec-exp-year').value = data.expiry_year || '';
     document.getElementById('ec-cvv').value = data.cvv || '';
+    document.getElementById('ec-pin').value = data.pin || '';
     document.getElementById('ec-status').value = data.status || 'active';
   }
   document.getElementById('ec-ok').textContent = '✅ New card generated — remember to share the new details with the customer.';
