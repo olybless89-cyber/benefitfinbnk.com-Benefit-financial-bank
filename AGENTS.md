@@ -522,3 +522,25 @@ exist for admin → customer messages:
   migration pipeline on push) before the admin buttons will work — same as
   every other numbered migration in this repo.
 
+
+## Railway build failure: stray composer.json triggered PHP detection (2026-09-07)
+Deploy failed at the build step (`railpack prepare exited with an error`):
+Railway's builder ("Railpack", the successor to Nixpacks — the build log
+shows `using build driver railpack-v0.39.0` even though `railway.json` still
+says `"builder": "NIXPACKS"`) auto-detected the project as PHP purely
+because the repo-root `composer.json` was still present (left over from the
+original PHP-era clone, never removed when the runtime moved to
+`node serve.js` in `3d455dc`), then failed provisioning `php 8.1` (`No
+version available for php 8.1`) before ever reading the Procfile/
+`nixpacks.toml`/`railway.json` Node config.
+`composer.json` was long-documented as dead code (see "What this project
+actually is" at the top of this file, and README.md's Security notes) but
+its mere presence was still enough to mislead the builder's language
+auto-detection. Fix: delete `composer.json` — there is no PHP runtime here
+(no `artisan`, no `vendor/`, no `index.php`), Node/`serve.js` is the only
+real backend, and `nixpacks.toml` already restricts the Nix packages to
+`nodejs_22` only. If Railway ever needs to be told explicitly again, the
+per-service Build settings in the Railway dashboard (not just
+`railway.json`) are the place to force the builder/provider, since the
+committed `railway.json` builder value did not stop the platform from
+picking Railpack here.
