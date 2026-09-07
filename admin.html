@@ -989,6 +989,7 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
     <div class="modal-header"><div class="modal-title">🔐 Wire Codes — Ready to Share</div><button class="modal-close" onclick="closeModal('modal-wire-codes-share')">✕</button></div>
     <div class="modal-body">
       <div class="info-note" id="wcs-user-note" style="background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Copy these and send them to the customer yourself — by real email, live chat, phone, however you normally reach them. Nothing here is sent automatically.</div>
+      <div class="info-note" id="wcs-off-warning" style="display:none;background:#3a1f0a;border:1px solid #5f3a1e;color:#fbbf24;margin-top:10px">⚠️ Wire codes are currently <strong>OFF</strong> for this customer (Global On/Off). They won't be asked for these codes until you switch it ON and save.</div>
       <div id="wcs-rows" style="display:flex;flex-direction:column;gap:10px;margin:16px 0"></div>
       <div class="alert alert-ok" id="wcs-copied" style="display:none">Copied to clipboard.</div>
       <button class="btn btn-primary" style="width:100%" onclick="copyAllWireCodes()">📋 Copy All Codes</button>
@@ -1409,11 +1410,21 @@ if (codes.enabled && hasAnyCode) sendWireCodeEmailTo(selectedUserId, codes)
 }
 refreshUsersWireBanner()
 wireLoad(selectedUserId, true);
-const savedFor = allUsers.find(x => x.id === selectedUserId) || {}
-closeModal('modal-wire-settings')
-// Pop the plain, copyable codes up right away so the admin can paste them
-// into a real email or chat tool — nothing here is auto-sent anywhere.
-if (codes.enabled && hasAnyCode) openWireCodesShare(codes, savedFor)
+if (hasAnyCode) {
+  // Codes exist — close the settings modal and immediately surface them in
+  // a plain, copyable form so the admin can paste them into a real email or
+  // chat tool. (Gated on hasAnyCode alone, not codes.enabled: "enabled" is
+  // the separate Global On/Off switch that controls whether the CUSTOMER's
+  // dashboard requires a code before submitting a wire — an admin who just
+  // generated and saved codes wants to see them regardless of that switch.)
+  const savedFor = allUsers.find(x => x.id === selectedUserId) || {}
+  closeModal('modal-wire-settings')
+  openWireCodesShare(codes, savedFor)
+} else {
+  // Nothing to copy yet (admin only changed settings, no codes generated) —
+  // just confirm the save without closing the modal from under them.
+  showAlert('ws-ok', 'Wire codes saved.')
+}
 }
 // ── Wire Codes Share popup — plain copyable codes, admin pastes them
 // wherever they actually reach the customer (real email, live chat, phone).
@@ -1436,6 +1447,8 @@ function openWireCodesShare(codes, forUser) {
   const note = document.getElementById('wcs-user-note')
   const name = forUser && (forUser.full_name || forUser.email)
   if (note) note.textContent = (name ? 'For ' + name + '. ' : '') + 'Copy these and send them to the customer yourself — by real email, live chat, phone, however you normally reach them. Nothing here is sent automatically.'
+  const offWarning = document.getElementById('wcs-off-warning')
+  if (offWarning) offWarning.style.display = codes.enabled ? 'none' : 'block'
   document.getElementById('wcs-copied').style.display = 'none'
   wireCodesShareCurrent = codes
   openModal('modal-wire-codes-share')
