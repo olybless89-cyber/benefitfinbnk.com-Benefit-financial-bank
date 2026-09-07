@@ -580,12 +580,14 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:14px 2
       <h2 style="font-size:19px;font-weight:800;color:var(--navy);margin-bottom:6px">My Cards</h2>
       <p style="font-size:13px;color:var(--muted);margin-bottom:24px">Virtual debit card linked to your account</p>
       <div style="max-width:380px">
-        <div style="background:linear-gradient(135deg,#0f2356,#2563eb);border-radius:18px;padding:28px;color:#fff;position:relative;overflow:hidden">
+        <div id="card-visual" style="background:linear-gradient(135deg,#0f2356,#2563eb);border-radius:18px;padding:28px;color:#fff;position:relative;overflow:hidden;transition:filter .2s">
           <div style="position:absolute;top:-20px;right:-20px;width:140px;height:140px;background:rgba(255,255,255,.06);border-radius:50%"></div>
+          <div id="card-banner" style="display:none;position:absolute;top:14px;right:-34px;transform:rotate(45deg);background:#dc2626;color:#fff;font-size:10px;font-weight:800;letter-spacing:1px;padding:4px 40px;text-transform:uppercase"></div>
           <div style="font-size:11px;opacity:.6;letter-spacing:2px;text-transform:uppercase;margin-bottom:24px">Benefit Financial Bank</div>
           <div style="font-size:22px;font-weight:700;letter-spacing:3px;font-family:monospace;margin-bottom:22px" id="card-num">•••• •••• •••• ——</div>
           <div style="display:flex;justify-content:space-between;align-items:flex-end">
             <div><div style="font-size:10px;opacity:.6;margin-bottom:3px">CARDHOLDER</div><div style="font-size:14px;font-weight:700" id="card-name">—</div></div>
+            <div><div style="font-size:10px;opacity:.6;margin-bottom:3px">VALID THRU</div><div style="font-size:14px;font-weight:700;font-family:monospace" id="card-exp">——/——</div></div>
             <div style="font-size:28px;opacity:.7">💳</div>
           </div>
         </div>
@@ -936,15 +938,9 @@ async function init(){
     const kyc=p.kyc_status||'unverified';
     const kycEl=document.getElementById('kyc-badge');
     if(kyc==='verified'){kycEl.classList.add('verified');document.getElementById('kyc-icon').textContent='✓';document.getElementById('kyc-text').textContent='KYC Verified';}
-    // Card status message — reflect the account's real KYC state instead of
-    // always showing the "requires verification" warning.
-    const cardStatusEl=document.getElementById('card-status-msg');
-    if(cardStatusEl){
-      if(kyc==='verified'){cardStatusEl.style.color='#16a34a';cardStatusEl.textContent='✅ Your card is active and ready to use.';}
-      else if(kyc==='pending'){cardStatusEl.style.color='#d97706';cardStatusEl.textContent='⏳ KYC verification is pending review. Your card will activate once verified.';}
-      else if(kyc==='rejected'){cardStatusEl.style.color='#dc2626';cardStatusEl.textContent='⚠️ KYC verification was rejected. Please contact support to resubmit.';}
-      else {cardStatusEl.style.color='#d97706';cardStatusEl.textContent='⚠️ Card activation requires KYC verification. Please contact support.';}
-    }
+    // Card status now comes from the user's own card record (independent of
+    // KYC) — see loadMyCard() below. It falls back to the old KYC-derived
+    // message if the cards RPC isn't deployed yet.
     // Topbar
     document.getElementById('topbar-avatar').textContent=initial;
     document.getElementById('topbar-bal').textContent='$'+Number(p.balance||0).toLocaleString('en',{minimumFractionDigits:2});
@@ -960,8 +956,7 @@ async function init(){
     if(depAcctEl)depAcctEl.textContent=walletDisplay();
     var depRefEl=document.getElementById('dep-ref');
     if(depRefEl)depRefEl.textContent='REF-'+userId.substring(0,8).toUpperCase();
-    document.getElementById('card-name').textContent=name.toUpperCase();
-    document.getElementById('card-num').textContent='•••• •••• '+(p.account_number||'').slice(-4);
+    loadMyCard(p, name);
     // Status badge on card
     const sb2=document.getElementById('bc-status-badge');
     if(p.status==='active'){sb2.style.background='rgba(74,222,128,.2)';sb2.style.color='#4ade80';sb2.textContent='Active';}
@@ -984,6 +979,51 @@ async function init(){
   }finally{
     clearTimeout(safety);
     hideLoader();
+  }
+}
+
+// Populates the "My Cards" section from the user's real card record
+// (independent of KYC — freeze/block are admin-controlled on the card
+// itself). Falls back to the old account-number-derived display and the old
+// KYC-derived status message if the cards RPC isn't deployed yet, so the
+// page never breaks or looks blank if SQL/supabase/014_cards.sql hasn't
+// been run on this Supabase project.
+async function loadMyCard(p, name){
+  const cardNameEl=document.getElementById('card-name');
+  const cardNumEl=document.getElementById('card-num');
+  const cardExpEl=document.getElementById('card-exp');
+  const cardStatusEl=document.getElementById('card-status-msg');
+  const cardVisualEl=document.getElementById('card-visual');
+  const cardBannerEl=document.getElementById('card-banner');
+  if(cardNameEl)cardNameEl.textContent=name.toUpperCase();
+  try{
+    const{data,error}=await sb.rpc('get_my_card');
+    const card=Array.isArray(data)?data[0]:data;
+    if(error||!card)throw error||new Error('no card on file');
+    if(cardNumEl)cardNumEl.textContent='•••• •••• •••• '+String(card.card_number||'').slice(-4);
+    if(cardExpEl)cardExpEl.textContent=String(card.expiry_month).padStart(2,'0')+'/'+String(card.expiry_year).slice(-2);
+    if(cardVisualEl)cardVisualEl.style.filter=(card.status==='active')?'none':'grayscale(.85)';
+    if(cardBannerEl){
+      if(card.status==='frozen'){cardBannerEl.style.display='block';cardBannerEl.textContent='Frozen';}
+      else if(card.status==='blocked'){cardBannerEl.style.display='block';cardBannerEl.textContent='Blocked';}
+      else{cardBannerEl.style.display='none';}
+    }
+    if(cardStatusEl){
+      if(card.status==='active'){cardStatusEl.style.color='#16a34a';cardStatusEl.textContent='✅ Your card is active and ready to use.';}
+      else if(card.status==='frozen'){cardStatusEl.style.color='#d97706';cardStatusEl.textContent='🧊 Your card is temporarily frozen. Contact support to unfreeze it.';}
+      else if(card.status==='blocked'){cardStatusEl.style.color='#dc2626';cardStatusEl.textContent='🚫 Your card has been blocked. Please contact support.';}
+    }
+  }catch(e){
+    // Legacy fallback (pre-014_cards.sql): fake the last 4 digits from the
+    // account number and derive status from KYC, same as before.
+    if(cardNumEl)cardNumEl.textContent='•••• •••• '+(p.account_number||'').slice(-4);
+    const kyc=p.kyc_status||'unverified';
+    if(cardStatusEl){
+      if(kyc==='verified'){cardStatusEl.style.color='#16a34a';cardStatusEl.textContent='✅ Your card is active and ready to use.';}
+      else if(kyc==='pending'){cardStatusEl.style.color='#d97706';cardStatusEl.textContent='⏳ KYC verification is pending review. Your card will activate once verified.';}
+      else if(kyc==='rejected'){cardStatusEl.style.color='#dc2626';cardStatusEl.textContent='⚠️ KYC verification was rejected. Please contact support to resubmit.';}
+      else{cardStatusEl.style.color='#d97706';cardStatusEl.textContent='⚠️ Card activation requires KYC verification. Please contact support.';}
+    }
   }
 }
 

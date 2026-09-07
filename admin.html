@@ -243,6 +243,10 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg>
         Wire Codes
       </a>
+      <a class="nav-item" onclick="showSection('cards')" href="#">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Cards
+      </a>
 
       <div class="nav-section">Approvals</div>
       <a class="nav-item" onclick="showSection('deposits')" href="#">
@@ -413,6 +417,29 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
               </tr></thead>
               <tbody id="users-tbody">
                 <tr><td colspan="8"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Loading users...</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ CARDS ═══════════ -->
+      <div class="section" id="section-cards">
+        <div class="section-title">Card Management</div>
+        <div class="section-sub">Every user is auto-issued a virtual debit card. Freeze, block, or edit any card here — independent of KYC status.</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>All Cards <span id="card-count" style="color:#4a5568;font-weight:400;font-size:13px"></span></h3>
+            <input class="search-box" type="text" placeholder="Search by name or email..." id="card-search" oninput="filterCards()">
+          </div>
+          <div class="overflow-x">
+            <table class="tbl">
+              <thead><tr>
+                <th>User</th><th>Card Number</th><th>Expiry</th><th>CVV</th>
+                <th>Status</th><th>Issued</th><th></th>
+              </tr></thead>
+              <tbody id="cards-tbody">
+                <tr><td colspan="7"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">Loading cards...</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -751,6 +778,7 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <button class="btn btn-primary" onclick="openWireSettingsModalForUser()">🌐 Wire Codes</button>
         <button class="btn btn-ghost" onclick="openMessageModal()">✉️ Send Message</button>
         <button class="btn btn-ghost" onclick="openEditUserModal()">✏️ Edit Profile</button>
+        <button class="btn btn-ghost" onclick="openEditCardModalForUser()">💳 Manage Card</button>
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -840,6 +868,44 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-edit-txn')">Cancel</button>
       <button class="btn btn-primary" id="et-save-btn" onclick="doSaveTxn()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit / Manage Card Modal -->
+<div class="modal-overlay" id="modal-edit-card">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">💳 Manage Card</div>
+        <div style="font-size:12px;color:#4a5568;margin-top:3px" id="ec-user-note">—</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-edit-card')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="ec-err"></div>
+      <div class="alert alert-ok" id="ec-ok"></div>
+      <div class="form-group"><label class="form-label">Card Number</label><input class="form-input" type="text" id="ec-number" style="font-family:monospace;letter-spacing:1px" maxlength="19" placeholder="4•••• •••• •••• ••••"></div>
+      <div style="display:flex;gap:12px">
+        <div class="form-group" style="flex:1"><label class="form-label">Expiry Month</label><input class="form-input" type="number" id="ec-exp-month" min="1" max="12" placeholder="MM"></div>
+        <div class="form-group" style="flex:1"><label class="form-label">Expiry Year</label><input class="form-input" type="number" id="ec-exp-year" min="2024" max="2099" placeholder="YYYY"></div>
+        <div class="form-group" style="flex:1"><label class="form-label">CVV</label><input class="form-input" type="text" id="ec-cvv" maxlength="4" placeholder="123"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select class="form-select" id="ec-status">
+          <option value="active">Active</option>
+          <option value="frozen">Frozen</option>
+          <option value="blocked">Blocked</option>
+        </select>
+      </div>
+      <div class="info-note">Freeze is a temporary hold the admin can lift anytime; Blocked is meant to be permanent (e.g. fraud, account closure). Both are fully independent of the user's KYC status.</div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-warning btn-sm" onclick="doRegenerateCard()" id="ec-regen-btn">🔄 Regenerate Card</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="closeModal('modal-edit-card')">Cancel</button>
+        <button class="btn btn-primary" id="ec-save-btn" onclick="doSaveCard()">Save Changes</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1644,6 +1710,7 @@ showAlert('ws-err', 'Could not copy. Link: ' + url)
 let currentUser = null;
 let allUsers = [];
 let allTxns = [];
+let allCards = [];
 let selectedUserId = null;
 let selectedTransferId = null;
 let selectedLoanId = null;
@@ -2364,6 +2431,126 @@ async function doSaveTxn() {
   else { await loadTxns(); }
 }
 
+// ── Cards ──────────────────────────────────────────────
+function maskCardNumber(num) {
+  const s = String(num || '');
+  const last4 = s.slice(-4);
+  return '•••• •••• •••• ' + (last4 || '????');
+}
+
+async function loadCards() {
+  const { data, error } = await sb.rpc('admin_get_all_cards');
+  if (error) {
+    document.getElementById('cards-tbody').innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">' + esc(error.message || 'Could not load cards. Apply SQL/supabase/014_cards.sql if this RPC is missing.') + '</div></div></td></tr>';
+    return;
+  }
+  allCards = data || [];
+  renderCards(allCards);
+}
+
+function renderCards(cards) {
+  const users = {};
+  allUsers.forEach(u => users[u.id] = (u.full_name || u.email));
+  const tb = document.getElementById('cards-tbody');
+  document.getElementById('card-count').textContent = cards.length ? `(${cards.length})` : '';
+  if (!cards.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">No cards issued yet</div></div></td></tr>'; return; }
+  tb.innerHTML = cards.map(c => `
+    <tr>
+      <td>${esc(users[c.user_id] || c.user_id.substring(0,8))}</td>
+      <td style="font-family:monospace">${maskCardNumber(c.card_number)}</td>
+      <td>${String(c.expiry_month).padStart(2,'0')}/${String(c.expiry_year).slice(-2)}</td>
+      <td style="font-family:monospace">•••</td>
+      <td><span class="badge badge-${c.status === 'active' ? 'active' : c.status === 'frozen' ? 'pending' : 'inactive'}">${c.status}</span></td>
+      <td>${new Date(c.created_at).toLocaleDateString()}</td>
+      <td><button type="button" class="btn btn-ghost btn-sm" onclick="openEditCardModal('${c.user_id}')">✏️ Manage</button></td>
+    </tr>`).join('');
+}
+
+function filterCards() {
+  const q = document.getElementById('card-search').value.toLowerCase();
+  const users = {};
+  allUsers.forEach(u => users[u.id] = (u.full_name || u.email || '').toLowerCase());
+  renderCards(allCards.filter(c => (users[c.user_id] || '').includes(q)));
+}
+
+let ecTargetUid = null;
+function openEditCardModal(uid) {
+  const u = allUsers.find(x => x.id === uid);
+  const c = allCards.find(x => x.user_id === uid);
+  ecTargetUid = uid;
+  document.getElementById('ec-err').style.display = 'none';
+  document.getElementById('ec-ok').style.display = 'none';
+  document.getElementById('ec-user-note').textContent = u ? (u.full_name || u.email) : uid;
+  if (c) {
+    document.getElementById('ec-number').value = c.card_number || '';
+    document.getElementById('ec-exp-month').value = c.expiry_month || '';
+    document.getElementById('ec-exp-year').value = c.expiry_year || '';
+    document.getElementById('ec-cvv').value = c.cvv || '';
+    document.getElementById('ec-status').value = c.status || 'active';
+  } else {
+    document.getElementById('ec-number').value = '';
+    document.getElementById('ec-exp-month').value = '';
+    document.getElementById('ec-exp-year').value = '';
+    document.getElementById('ec-cvv').value = '';
+    document.getElementById('ec-status').value = 'active';
+  }
+  openModal('modal-edit-card');
+}
+
+function openEditCardModalForUser() {
+  if (!selectedUserId) return;
+  closeModal('modal-user');
+  openEditCardModal(selectedUserId);
+}
+
+async function doSaveCard() {
+  if (!ecTargetUid) return;
+  const number = document.getElementById('ec-number').value.trim();
+  const month = parseInt(document.getElementById('ec-exp-month').value, 10);
+  const year = parseInt(document.getElementById('ec-exp-year').value, 10);
+  const cvv = document.getElementById('ec-cvv').value.trim();
+  const status = document.getElementById('ec-status').value;
+  if (!number || regexDigitsOnly(number).length < 12) { showAlert('ec-err', 'Enter a valid card number.'); return; }
+  if (!month || month < 1 || month > 12) { showAlert('ec-err', 'Enter a valid expiry month (1-12).'); return; }
+  if (!year || year < 2024) { showAlert('ec-err', 'Enter a valid expiry year.'); return; }
+  if (!cvv) { showAlert('ec-err', 'Enter a CVV.'); return; }
+  setLoading('ec-save-btn', true, 'Saving...');
+  const { error } = await sb.rpc('admin_update_card', {
+    target_uid: ecTargetUid,
+    p_card_number: number,
+    p_expiry_month: month,
+    p_expiry_year: year,
+    p_cvv: cvv,
+    p_status: status
+  });
+  setLoading('ec-save-btn', false, 'Save Changes');
+  if (error) { showAlert('ec-err', error.message); return; }
+  document.getElementById('ec-ok').textContent = '✅ Card updated.';
+  document.getElementById('ec-ok').style.display = 'block';
+  await loadCards();
+  setTimeout(() => closeModal('modal-edit-card'), 800);
+}
+
+async function doRegenerateCard() {
+  if (!ecTargetUid) return;
+  setLoading('ec-regen-btn', true, 'Generating...');
+  const { data, error } = await sb.rpc('admin_issue_card', { target_uid: ecTargetUid });
+  setLoading('ec-regen-btn', false, '🔄 Regenerate Card');
+  if (error) { showAlert('ec-err', error.message || 'Could not issue a card. Apply SQL/supabase/014_cards.sql if this RPC is missing.'); return; }
+  if (data) {
+    document.getElementById('ec-number').value = data.card_number || '';
+    document.getElementById('ec-exp-month').value = data.expiry_month || '';
+    document.getElementById('ec-exp-year').value = data.expiry_year || '';
+    document.getElementById('ec-cvv').value = data.cvv || '';
+    document.getElementById('ec-status').value = data.status || 'active';
+  }
+  document.getElementById('ec-ok').textContent = '✅ New card generated — remember to share the new details with the customer.';
+  document.getElementById('ec-ok').style.display = 'block';
+  await loadCards();
+}
+
+function regexDigitsOnly(s) { return String(s || '').replace(/\D/g, ''); }
+
 // ── UI Helpers ────────────────────────────────────────
 function showSection(id, el) {
   if (id === 'deposits') loadDeposits();
@@ -2371,6 +2558,7 @@ function showSection(id, el) {
   if (id === 'email') loadEmail();
   if (id === 'security') renderAdminSecurity();
   if (id === 'deposit-methods') pmLoad();
+  if (id === 'cards') loadCards();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('section-' + id).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
