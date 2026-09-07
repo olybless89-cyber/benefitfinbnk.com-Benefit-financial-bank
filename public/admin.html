@@ -932,13 +932,13 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
     <div class="modal-body">
       <div class="alert alert-err" id="ws-err"></div>
       <div class="alert alert-ok" id="ws-ok" style="display:none"></div>
-      <div class="info-note" id="ws-note" style="display:none;background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Enable any of the three International Wire requirements below — the transfer only needs codes for the toggles that are <strong>ON</strong>. Each code is generated per user and can be shared via Live Chat or Email.</div>
       <div class="info-note" id="ws-select-note" style="display:none;background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Please select a user first.</div>
       <div class="form-group"><label class="form-label">Select User</label>
         <input class="form-input" type="text" id="ws-user-search" placeholder="Search by name, email, or account number..." oninput="wsFilterUsers()" autocomplete="off">
         <div id="ws-user-list" style="max-height:180px;overflow-y:auto;margin-top:8px;border:1px solid #1e2d4a;border-radius:8px;background:#0b1120;display:none"></div>
         <div id="ws-user-chip" style="display:none;margin-top:8px;background:#0a1f3a;border:1px solid #1e3a5f;border-radius:8px;padding:8px 12px;font-size:13px;color:#cbd5e1;line-height:1.55"></div>
       </div>
+      <div class="info-note" id="ws-note" style="display:none;background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Enable any of the three International Wire requirements below — the transfer only needs codes for the toggles that are <strong>ON</strong>. Each code is generated per user and can be shared via Live Chat or Email.</div>
       <div class="form-group"><label class="form-label">Global On/Off</label>
         <select class="form-select" id="ws-enabled" onchange="renderWireSettingsState()">
           <option value="true">ON — users must enter required wire codes</option>
@@ -969,7 +969,8 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="saveWireSettings()">Save Codes</button>
         <button class="btn btn-ghost" onclick="generateWireCodes()">🔁 Regenerate</button>
-        <button class="btn btn-ghost" onclick="sendWireCodeEmail()">✉️ Email Codes</button>
+        <button class="btn btn-ghost" onclick="openWireCodesShare(wireCollectSettingsPreview(), allUsers.find(x=>x.id===selectedUserId))">📋 Copy Codes</button>
+        <button class="btn btn-ghost" onclick="sendWireCodeEmail()">✉️ Email Codes (in-app)</button>
         <button class="btn btn-success" onclick="sendWireCodeChat()">💬 Send via Chat</button>
       </div>
     </div>
@@ -977,6 +978,23 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
       <button class="btn btn-ghost" onclick="closeModal('modal-wire-settings')">Cancel</button>
       <button class="btn btn-primary" onclick="saveWireSettings()" id="ws-save-btn">Save Codes</button>
       <button class="btn btn-ghost" onclick="copyWireCodesLink()">🔗 Copy Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- Wire Codes Share Modal — plain, copyable codes for pasting into a real
+     email or chat tool. Pops up automatically right after Save Codes. -->
+<div class="modal-overlay" id="modal-wire-codes-share">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">🔐 Wire Codes — Ready to Share</div><button class="modal-close" onclick="closeModal('modal-wire-codes-share')">✕</button></div>
+    <div class="modal-body">
+      <div class="info-note" id="wcs-user-note" style="background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Copy these and send them to the customer yourself — by real email, live chat, phone, however you normally reach them. Nothing here is sent automatically.</div>
+      <div id="wcs-rows" style="display:flex;flex-direction:column;gap:10px;margin:16px 0"></div>
+      <div class="alert alert-ok" id="wcs-copied" style="display:none">Copied to clipboard.</div>
+      <button class="btn btn-primary" style="width:100%" onclick="copyAllWireCodes()">📋 Copy All Codes</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-wire-codes-share')">Done</button>
     </div>
   </div>
 </div>
@@ -1365,6 +1383,17 @@ const codes = { enabled: enabled, cost: cost, tax: tax, release: release, requir
 wireCodesCache[selectedUserId] = codes
 return codes
 }
+// Same as wireCollectSettings() but read-only (no "select a user" alert, no
+// cache write) — used by the "Copy Codes" button to preview whatever is
+// currently typed in the form, saved or not.
+function wireCollectSettingsPreview() {
+  return {
+    enabled: document.getElementById('ws-enabled').value === 'true',
+    cost: (document.getElementById('ws-cost-code').value || '').trim(),
+    tax: (document.getElementById('ws-tax-code').value || '').trim(),
+    release: (document.getElementById('ws-release-code').value || '').trim()
+  }
+}
 async function saveWireSettings() {
 const codes = wireCollectSettings()
 if (!codes) return
@@ -1374,14 +1403,84 @@ const el = document.getElementById('ws-save-btn'); el.disabled = true; el.textCo
 const d = await sb.rpc('admin_set_wire_codes', { target_uid: selectedUserId, p_codes: codes })
 el.disabled = false; el.textContent = 'Save Codes'
 if (d.error) { showAlert('ws-err', d.error.message); return }
+const hasAnyCode = !!(codes.cost || codes.tax || codes.release)
 if (d.data && d.data.created_at) {
-const any = codes.cost || codes.tax || codes.release
-if (codes.enabled && any) sendWireCodeEmailTo(selectedUserId, codes)
+if (codes.enabled && hasAnyCode) sendWireCodeEmailTo(selectedUserId, codes)
 }
-showAlert('ws-ok', 'Wire codes saved.')
 refreshUsersWireBanner()
 wireLoad(selectedUserId, true);
+const savedFor = allUsers.find(x => x.id === selectedUserId) || {}
 closeModal('modal-wire-settings')
+// Pop the plain, copyable codes up right away so the admin can paste them
+// into a real email or chat tool — nothing here is auto-sent anywhere.
+if (codes.enabled && hasAnyCode) openWireCodesShare(codes, savedFor)
+}
+// ── Wire Codes Share popup — plain copyable codes, admin pastes them
+// wherever they actually reach the customer (real email, live chat, phone).
+function wireCodesShareRow(label, value) {
+  if (!value) return ''
+  const safeVal = esc(value)
+  return '<div style="background:#0b1120;border:1.5px solid #1e2d4a;border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">'
+    + '<div><div style="font-size:11px;color:#64748b;margin-bottom:3px">' + esc(label) + '</div><div style="font-family:monospace;font-size:16px;font-weight:700;color:#e2e8f0;letter-spacing:.5px">' + safeVal + '</div></div>'
+    + '<button type="button" class="btn btn-ghost btn-sm" onclick="copyWireCode(this,\'' + safeVal.replace(/'/g, "\\'") + '\')">📋 Copy</button>'
+  + '</div>'
+}
+function openWireCodesShare(codes, forUser) {
+  const rows = [
+    wireCodesShareRow('Cost of Transfer Code', codes.cost),
+    wireCodesShareRow('Tax Code', codes.tax),
+    wireCodesShareRow('Release Code', codes.release)
+  ].join('')
+  const rowsEl = document.getElementById('wcs-rows')
+  if (rowsEl) rowsEl.innerHTML = rows || '<div style="color:#64748b;font-size:13px">No codes are set.</div>'
+  const note = document.getElementById('wcs-user-note')
+  const name = forUser && (forUser.full_name || forUser.email)
+  if (note) note.textContent = (name ? 'For ' + name + '. ' : '') + 'Copy these and send them to the customer yourself — by real email, live chat, phone, however you normally reach them. Nothing here is sent automatically.'
+  document.getElementById('wcs-copied').style.display = 'none'
+  wireCodesShareCurrent = codes
+  openModal('modal-wire-codes-share')
+}
+let wireCodesShareCurrent = null
+function wireCodesFlash() {
+  const el = document.getElementById('wcs-copied')
+  if (!el) return
+  el.style.display = 'block'
+  clearTimeout(wireCodesFlash._t)
+  wireCodesFlash._t = setTimeout(function () { el.style.display = 'none' }, 2500)
+}
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch (e) {
+    // Fallback for browsers/contexts without Clipboard API access.
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'
+      document.body.appendChild(ta); ta.focus(); ta.select()
+      document.execCommand('copy'); document.body.removeChild(ta)
+      return true
+    } catch (e2) { return false }
+  }
+}
+async function copyWireCode(btn, value) {
+  const ok = await copyToClipboard(value)
+  if (ok) {
+    const orig = btn.textContent
+    btn.textContent = '✅ Copied'
+    wireCodesFlash()
+    setTimeout(function () { btn.textContent = orig }, 1500)
+  }
+}
+async function copyAllWireCodes() {
+  const codes = wireCodesShareCurrent
+  if (!codes) return
+  const lines = ['Your International Wire codes:']
+  if (codes.cost) lines.push('Cost of Transfer Code: ' + codes.cost)
+  if (codes.tax) lines.push('Tax Code: ' + codes.tax)
+  if (codes.release) lines.push('Release Code: ' + codes.release)
+  await copyToClipboard(lines.join('\n'))
+  wireCodesFlash()
 }
 function generateWireCodes() {
 if (!selectedUserId) { showAlert('ws-err', 'Select a user first.'); return }
