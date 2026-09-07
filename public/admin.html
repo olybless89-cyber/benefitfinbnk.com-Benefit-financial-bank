@@ -404,6 +404,11 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
           <span class="alert-icon">⚠️</span>
           <span id="users-alert-text"></span>
         </div>
+        <div class="alert-banner" style="display:flex;align-items:center;gap:10px;background:#3a1f0a;border:1px solid #5f3a1e;border-left:4px solid #f59e0b;color:#fbbf24;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;line-height:1.5">
+          <span class="alert-icon">🔑</span>
+          <span style="flex:1">Force a password reset for every customer at once (e.g. after a suspected credential leak).</span>
+          <button class="btn btn-danger btn-sm" onclick="openResetAllPasswordsConfirm()">Reset All Passwords</button>
+        </div>
         <div class="table-wrap">
           <div class="table-header">
             <h3>All Users <span id="user-count" style="color:#4a5568;font-weight:400;font-size:13px"></span></h3>
@@ -777,6 +782,7 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <button class="btn btn-ghost" onclick="openTxnHistory()">📋 Transactions</button>
         <button class="btn btn-primary" onclick="openWireSettingsModalForUser()">🌐 Wire Codes</button>
         <button class="btn btn-ghost" onclick="openMessageModal()">✉️ Send Message</button>
+        <button class="btn btn-ghost" onclick="openResetPasswordModal()">🔑 Reset Password</button>
         <button class="btn btn-ghost" onclick="openEditUserModal()">✏️ Edit Profile</button>
         <button class="btn btn-ghost" onclick="openEditCardModalForUser()">💳 Manage Card</button>
       </div>
@@ -1138,6 +1144,63 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-wire-codes-share')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Password Modal — single user -->
+<div class="modal-overlay" id="modal-reset-pw">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">🔑 Reset Password</div><button class="modal-close" onclick="closeModal('modal-reset-pw')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="rp-err"></div>
+      <div id="rp-confirm">
+        <div class="info-note" style="background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">This generates a brand-new random password for <strong id="rp-target-name">this user</strong> and immediately replaces their current one. Their existing sessions are signed out.</div>
+        <button class="btn btn-danger" style="width:100%;margin-top:14px" id="rp-go-btn" onclick="doResetPassword()">Generate New Password</button>
+      </div>
+      <div id="rp-result" style="display:none">
+        <div style="background:#0b1120;border:1.5px solid #1e2d4a;border-radius:10px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+          <div><div style="font-size:11px;color:#64748b;margin-bottom:3px">New password</div><div id="rp-password" style="font-family:monospace;font-size:18px;font-weight:700;color:#e2e8f0;letter-spacing:.5px">—</div></div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="copyResetPassword()">📋 Copy</button>
+        </div>
+        <div class="info-note" style="background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Deliver it to the customer now, or copy it and send it yourself.</div>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <button class="btn btn-primary" style="flex:1" onclick="deliverResetPassword('webmail')">✉️ Send via Webmail</button>
+          <button class="btn btn-primary" style="flex:1" onclick="deliverResetPassword('live_chat')">💬 Send via Live Chat</button>
+        </div>
+        <div class="alert alert-err" id="rp-send-err" style="display:none"></div>
+        <div class="alert alert-ok" id="rp-send-ok" style="display:none"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-reset-pw')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset ALL Passwords Modal — bulk, every non-admin user -->
+<div class="modal-overlay" id="modal-reset-all-pw">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header"><div class="modal-title">🔑 Reset ALL Customer Passwords</div><button class="modal-close" onclick="closeModal('modal-reset-all-pw')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="rap-err"></div>
+      <div id="rap-confirm">
+        <div class="info-note" style="background:#2d0000;border:1px solid #5f1e1e;color:#f87171">⚠️ This immediately replaces the password for EVERY customer account (not admins) with a new random password and signs all of them out. This cannot be undone. Only use this for a real security incident.</div>
+        <label class="form-label" style="margin-top:14px;display:block">Type <strong>RESET ALL</strong> to confirm</label>
+        <input class="form-input" id="rap-confirm-input" placeholder="RESET ALL">
+        <button class="btn btn-danger" style="width:100%;margin-top:14px" id="rap-go-btn" onclick="doResetAllPasswords()">Reset Every Customer's Password</button>
+      </div>
+      <div id="rap-result" style="display:none">
+        <div class="info-note" style="background:#0a1f3a;border:1px solid #1e3a5f;color:#93c5fd">Reset <span id="rap-count">0</span> account(s). Send each customer their new password below.</div>
+        <div style="display:flex;gap:8px;margin:10px 0">
+          <button class="btn btn-ghost btn-sm" onclick="copyAllResetPasswords()">📋 Copy All (email — password)</button>
+        </div>
+        <div id="rap-rows" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+        <div class="alert alert-ok" id="rap-sent-ok" style="display:none;margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-reset-all-pw')">Done</button>
     </div>
   </div>
 </div>
@@ -1740,6 +1803,145 @@ showAlert('ws-ok', 'Link copied to clipboard. Send it to the user; they will tap
 }).catch(function () {
 showAlert('ws-err', 'Could not copy. Link: ' + url)
 })
+}
+
+// ── Reset Password (single user) ──────────────────────────────────────────
+// Calls admin_reset_user_password (017_admin_reset_password.sql), a
+// SECURITY DEFINER RPC that writes the new bcrypt hash straight into
+// auth.users — no service_role key needed. Delivery reuses the same
+// Webmail (admin_send_message shape) / Live Chat (admin_append_ticket_message,
+// from 007) channels as every other admin -> user message in this app; there
+// is no real outbound SMTP here (see README), so "email" means the in-app
+// Webmail the customer already reads from their dashboard.
+let rpTarget = null;
+let rpPassword = null;
+
+function openResetPasswordModal() {
+  const u = allUsers.find(x => x.id === selectedUserId);
+  if (!u) return;
+  closeModal('modal-user');
+  rpTarget = { id: u.id, email: u.email, name: u.full_name || u.email };
+  rpPassword = null;
+  document.getElementById('rp-target-name').textContent = rpTarget.name;
+  document.getElementById('rp-err').style.display = 'none';
+  document.getElementById('rp-send-err').style.display = 'none';
+  document.getElementById('rp-send-ok').style.display = 'none';
+  document.getElementById('rp-confirm').style.display = 'block';
+  document.getElementById('rp-result').style.display = 'none';
+  setLoading('rp-go-btn', false, 'Generate New Password');
+  openModal('modal-reset-pw');
+}
+
+async function doResetPassword() {
+  if (!rpTarget) return;
+  setLoading('rp-go-btn', true, 'Generating...');
+  document.getElementById('rp-err').style.display = 'none';
+  const { data, error } = await sb.rpc('admin_reset_user_password', { target_id: rpTarget.id });
+  setLoading('rp-go-btn', false, 'Generate New Password');
+  if (error) {
+    showAlert('rp-err', error.message || 'Could not reset password. Apply SQL/supabase/017_admin_reset_password.sql if the RPC is missing.');
+    return;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  rpPassword = row && row.new_password;
+  document.getElementById('rp-password').textContent = rpPassword || '—';
+  document.getElementById('rp-confirm').style.display = 'none';
+  document.getElementById('rp-result').style.display = 'block';
+}
+
+function resetPasswordMessage(pw) {
+  return 'An administrator has reset your Benefit Financial Bank account password.\n\n'
+    + 'Your new temporary password is: ' + pw + '\n\n'
+    + 'Please sign in with it and change it right away from Settings → Security.';
+}
+
+async function copyResetPassword() {
+  if (!rpPassword) return;
+  await copyToClipboard(rpPassword);
+  showAlert('rp-send-ok', 'Copied to clipboard.');
+}
+
+async function deliverResetPassword(channel) {
+  if (!rpTarget || !rpPassword) return;
+  const { error } = await sb.rpc('admin_deliver_password', {
+    target_user: rpTarget.id,
+    p_message: resetPasswordMessage(rpPassword),
+    channel: channel,
+    p_subject: 'Your password has been reset'
+  });
+  if (error) {
+    showAlert('rp-send-err', 'Could not deliver: ' + (error.message || error));
+    return;
+  }
+  showAlert('rp-send-ok', 'Sent via ' + (channel === 'webmail' ? 'Webmail' : 'Live Chat') + '.');
+  loadEmail(true);
+}
+
+// ── Reset ALL Passwords (bulk, every non-admin user) ──────────────────────
+let rapResults = [];
+
+function openResetAllPasswordsConfirm() {
+  document.getElementById('rap-err').style.display = 'none';
+  document.getElementById('rap-confirm-input').value = '';
+  document.getElementById('rap-confirm').style.display = 'block';
+  document.getElementById('rap-result').style.display = 'none';
+  setLoading('rap-go-btn', false, "Reset Every Customer's Password");
+  openModal('modal-reset-all-pw');
+}
+
+async function doResetAllPasswords() {
+  const confirmText = document.getElementById('rap-confirm-input').value.trim();
+  if (confirmText !== 'RESET ALL') {
+    showAlert('rap-err', 'Type RESET ALL (exactly) to confirm.');
+    return;
+  }
+  setLoading('rap-go-btn', true, 'Resetting...');
+  const { data, error } = await sb.rpc('admin_reset_all_user_passwords');
+  setLoading('rap-go-btn', false, "Reset Every Customer's Password");
+  if (error) {
+    showAlert('rap-err', error.message || 'Could not reset passwords. Apply SQL/supabase/017_admin_reset_password.sql if the RPC is missing.');
+    return;
+  }
+  rapResults = data || [];
+  document.getElementById('rap-count').textContent = rapResults.length;
+  document.getElementById('rap-rows').innerHTML = rapResults.map(rapRow).join('')
+    || '<div style="color:#64748b;font-size:13px">No customer accounts to reset.</div>';
+  document.getElementById('rap-confirm').style.display = 'none';
+  document.getElementById('rap-result').style.display = 'block';
+  await loadUsers();
+  await loadStats();
+}
+
+function rapRow(r) {
+  const safePw = esc(r.new_password || '');
+  return '<div style="background:#0b1120;border:1.5px solid #1e2d4a;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<div style="flex:1;min-width:160px"><div style="font-size:12px;color:#e2e8f0">' + esc(r.email || r.user_id) + '</div><div style="font-family:monospace;font-size:13px;color:#93c5fd">' + safePw + '</div></div>'
+    + '<button type="button" class="btn btn-ghost btn-sm" onclick="copyToClipboard(\'' + safePw + '\')">📋</button>'
+    + '<button type="button" class="btn btn-ghost btn-sm" id="rap-btn-webmail-' + r.user_id + '" onclick="deliverBulkPassword(\'' + r.user_id + '\',\'webmail\',this)">✉️ Webmail</button>'
+    + '<button type="button" class="btn btn-ghost btn-sm" id="rap-btn-chat-' + r.user_id + '" onclick="deliverBulkPassword(\'' + r.user_id + '\',\'live_chat\',this)">💬 Chat</button>'
+  + '</div>';
+}
+
+async function deliverBulkPassword(uid, channel, btn) {
+  const row = rapResults.find(r => r.user_id === uid);
+  if (!row) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  const { error } = await sb.rpc('admin_deliver_password', {
+    target_user: uid,
+    p_message: resetPasswordMessage(row.new_password),
+    channel: channel,
+    p_subject: 'Your password has been reset'
+  });
+  btn.disabled = false;
+  btn.textContent = error ? '⚠️ Failed' : '✅ Sent';
+  if (!error) setTimeout(function () { btn.textContent = orig; }, 3000);
+}
+
+async function copyAllResetPasswords() {
+  const lines = rapResults.map(r => (r.email || r.user_id) + ' — ' + r.new_password);
+  await copyToClipboard(lines.join('\n'));
+  showAlert('rap-sent-ok', 'Copied all to clipboard.');
 }
 
 let currentUser = null;

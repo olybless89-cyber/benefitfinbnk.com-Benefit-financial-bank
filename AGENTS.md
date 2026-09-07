@@ -447,3 +447,78 @@ verified working against the live project this way.
 - **Gotcha**: a missing closing paren breaksthe whole inline `init()` → dashboard hung on "Loading ... forever. Always run `node --check` per inline `<script>` block (pre-existing legacy octal in old blocks fails node strict — compare against baseline; only actual parser errors like `missing )` matter).
 - E2E-verified (self-hosted stack`:admin edit BTC wallet → customer deposit BTC shows new wallet; bank name/account_number/bank_address → customer bank card shows them + copy buttons; PayPal email → customer PayPal card shows it; deactivate PayPal → customer tile + BTC box hide (DB `active=false`); reactivate → tile returns. Anon `get_active_payment_methods` returns only active rows.
 
+## "Reset password not working" investigation + admin reset-password feature (2026-09-07)
+Investigated a report that password reset "doesn't work". **No code bug found**
+in `forgot-password.html` / `reset-password.html` / the clean-URL routing
+(`vercel.json` + `public/router.php`) — the flow matches what 2026-09-05
+already verified (`resetPasswordForEmail` → email link → `reset-password.html`
+consumes the recovery hash via `detectSessionInUrl` → `updateUser({password})`).
+Two things outside the repo are the far more likely cause and need checking
+directly in their respective dashboards (no credentials for either are in
+this repo, so they cannot be verified or fixed from here):
+1. **Supabase Dashboard → Auth → Emails/SMTP**: if no SMTP provider is
+   configured, `resetPasswordForEmail` still returns success but no email is
+   ever delivered. This is the single most common cause of "the reset link
+   never arrives."
+2. **Supabase Dashboard → Auth → URL Configuration → Redirect URLs**: must
+   contain the *exact* origin the recovery link redirects to
+   (`https://benefitfinbnk.com/reset-password`, plus any other domain the
+   site is actually reachable at — see below). If the redirect isn't
+   allow-listed, GoTrue silently falls back to the project's default
+   `SITE_URL` instead of rejecting the request, so the email still sends but
+   the link goes somewhere else — this looks identical to "reset doesn't
+   work" from the user's side.
+3. **Domain/TLS**: `DEPLOY_STATUS.md` documents the custom domain as a
+   target for *both* Vercel (Git integration) and Railway (`serve.js`,
+   2026-09-06) at once. A direct fetch of `https://benefitfinbnk.com/`
+   returned `certificate verify failed: Hostname mismatch, certificate is
+   not valid for 'benefitfinbnk.com'` on at least one request — consistent
+   with the custom domain's DNS/TLS not being fully/consistently provisioned
+   for whichever host is actually supposed to be live. If that's
+   intermittent, some visitors (including ones clicking the reset-password
+   link from their email) will fail to load the site at all. This needs
+   checking in the domain registrar / Vercel / Railway dashboards, not the
+   repo.
+
+**Code improvement made anyway**: `reset-password.html` (+ `public/` mirror)
+previously showed a generic "invalid or expired" message for every failure
+case. GoTrue actually reports *why* a recovery link failed via
+`#error=...&error_code=...&error_description=...` in the URL hash (expired
+token, disallowed redirect, etc.) — `initReset()` now parses that and shows
+the real reason instead of a generic message, which should make the next
+occurrence of this complaint self-diagnosing from the browser URL bar alone.
+
+**New: admin-initiated password reset** (`SQL/supabase/017_admin_reset_password.sql`,
+`admin.html` + `public/` mirror). This app has no outbound SMTP (see
+`README.md`), so credential delivery reuses the two channels that already
+exist for admin → customer messages:
+- `admin_reset_user_password(target_id, new_password default null)` —
+  SECURITY DEFINER, admin-guarded via `public.is_admin()` (same pattern as
+  `admin_delete_user` etc. in `013_admin_user_transaction_management.sql`);
+  writes `crypt(pw, gen_salt('bf'))` straight into
+  `auth.users.encrypted_password` (`pgcrypto`, already used by `014_cards.sql`)
+  — no service_role key or Admin API needed. Auto-generates an unambiguous
+  12-char password when `new_password` is omitted; best-effort revokes the
+  user's `auth.refresh_tokens`. Blocks self-reset (errcode 44000, use the
+  existing Security section instead) and resetting another admin's password.
+- `admin_reset_all_user_passwords()` — same, looped over every
+  `profiles.role <> 'admin'` row; returns one `(user_id, email,
+  account_number, new_password)` row per user.
+- `admin_deliver_password(target_user, p_message, channel, p_subject)` —
+  `channel='webmail'` inserts a closed ticket shaped exactly like
+  `admin_send_message` (so it renders in the customer's existing Webmail);
+  `channel='live_chat'` finds (or starts, same shape the chat widget itself
+  creates) the customer's live-chat `support_tickets` row and appends via
+  `admin_append_ticket_message` (007) so it lands as a normal chat bubble.
+- Admin UI: "Manage user" drawer gained a **🔑 Reset Password** button
+  (generates + shows the new password with a copy button, then "Send via
+  Webmail" / "Send via Live Chat"); Users section gained a **Reset All
+  Passwords** banner (bulk action, gated behind typing `RESET ALL`, results
+  listed per-user with copy + per-channel send buttons).
+- Extracted every touched inline `<script>` block and ran `node --check` —
+  no syntax errors (the standing gotcha in this file: one bad statement kills
+  the whole inline script and the page hangs on "Loading…").
+- **Must be applied in the Supabase SQL editor once** (or via the CI
+  migration pipeline on push) before the admin buttons will work — same as
+  every other numbered migration in this repo.
+
