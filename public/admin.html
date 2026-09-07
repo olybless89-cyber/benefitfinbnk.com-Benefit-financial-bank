@@ -640,7 +640,7 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
             <table class="tbl">
               <thead><tr>
                 <th>User</th><th>Type</th><th>Amount</th><th>Reason</th>
-                <th>Status</th><th>Date</th>
+                <th>Status</th><th>Date</th><th></th>
               </tr></thead>
               <tbody id="txns-tbody"></tbody>
             </table>
@@ -750,6 +750,7 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         <button class="btn btn-ghost" onclick="openTxnHistory()">📋 Transactions</button>
         <button class="btn btn-primary" onclick="openWireSettingsModalForUser()">🌐 Wire Codes</button>
         <button class="btn btn-ghost" onclick="openMessageModal()">✉️ Send Message</button>
+        <button class="btn btn-ghost" onclick="openEditUserModal()">✏️ Edit Profile</button>
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -763,6 +764,82 @@ body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0;min-height:
         </select>
       </div>
       <div class="alert alert-err" id="mu-err" style="margin-top:10px"></div>
+
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1e2d4a">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#f87171;margin-bottom:8px">⚠ Danger Zone</div>
+        <button class="btn btn-danger btn-sm" style="width:100%" onclick="openDeleteUserConfirm()">🗑️ Delete User (Permanent)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Profile Modal -->
+<div class="modal-overlay" id="modal-edit-user">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">✏️ Edit User Profile</div><button class="modal-close" onclick="closeModal('modal-edit-user')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="eu-err"></div>
+      <div class="alert alert-ok" id="eu-ok"></div>
+      <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" type="text" id="eu-name"></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" id="eu-email"></div>
+      <div class="form-group"><label class="form-label">Account Number</label><input class="form-input" type="text" id="eu-account" style="font-family:monospace"></div>
+      <div class="form-group"><label class="form-label">Balance Override (USD)</label><input class="form-input" type="number" id="eu-balance" min="0" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Transaction Limit (USD)</label><input class="form-input" type="number" id="eu-limit" min="0" step="0.01"></div>
+      <div class="info-note" style="background:#3a1f0a;border:1px solid #5f3a1e;color:#fbbf24">⚠️ Balance and Transaction Limit are direct overrides — they take effect immediately with no transaction log entry.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-user')">Cancel</button>
+      <button class="btn btn-primary" id="eu-save-btn" onclick="doSaveUserProfile()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete User Confirm Modal -->
+<div class="modal-overlay" id="modal-delete-user">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">🗑️ Delete User — Permanent</div><button class="modal-close" onclick="closeModal('modal-delete-user')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="du-err"></div>
+      <div class="info-note" style="background:#2d0000;border:1px solid #5f1e1e;color:#f87171">
+        This <strong>permanently erases</strong> <span id="du-name">this user</span> and everything tied to their account —
+        profile, transactions, transfers, loans, deposits, and support tickets. This action cannot be undone.
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">Type <strong id="du-confirm-word">DELETE</strong> to confirm</label>
+        <input class="form-input" type="text" id="du-confirm-input" oninput="duCheckConfirm()" autocomplete="off">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete-user')">Cancel</button>
+      <button class="btn btn-danger" id="du-confirm-btn" onclick="doDeleteUser()" disabled>Permanently Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Transaction Modal -->
+<div class="modal-overlay" id="modal-edit-txn">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">✏️ Edit Transaction</div><button class="modal-close" onclick="closeModal('modal-edit-txn')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-err" id="et-err"></div>
+      <div class="alert alert-ok" id="et-ok"></div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select class="form-select" id="et-status">
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="failed">Failed</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Amount (USD)</label><input class="form-input" type="number" id="et-amount" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Date &amp; Time</label><input class="form-input" type="datetime-local" id="et-date"></div>
+      <div class="form-group"><label class="form-label">Description / Reference</label><textarea class="form-textarea" id="et-desc"></textarea></div>
+      <div class="info-note" style="background:#3a1f0a;border:1px solid #5f3a1e;color:#fbbf24">⚠️ Changing the amount auto-adjusts this user's account balance by the difference.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-txn')">Cancel</button>
+      <button class="btn btn-primary" id="et-save-btn" onclick="doSaveTxn()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1341,10 +1418,10 @@ function wsRefreshButtons() {
  const sel2 = document.getElementById('ws-user-search'); if (sel2) sel2.disabled = false;
  ['ws-req-cost','ws-req-tax','ws-req-release','ws-cost-code','ws-tax-code','ws-release-code','ws-select-note','ws-note','ws-codes-note'].forEach(function (id) {
    const el = document.getElementById(id); if (el) el.style.opacity = hasSel ? '1' : '0.45';
- })
+ });
  ['ws-cost-code','ws-tax-code','ws-release-code'].forEach(function (id) {
    const el = document.getElementById(id); if (el) el.disabled = !hasSel;
- })
+ });
  const toggles = document.querySelectorAll('.wire-toggle')
  toggles.forEach(function (el) { el.style.pointerEvents = hasSel ? 'auto' : 'none'; el.style.opacity = hasSel ? '1' : '0.45'; })
  const saveBtns = document.querySelectorAll('#modal-wire-settings .btn-primary[onclick="saveWireSettings()"]')
@@ -1365,7 +1442,7 @@ function wireReqOn(key) {
   if (!enabled) return false
   return req ? (req[key] === true) : true
 }function renderWireSettingsState() {
-const enabled = document.getElementById('ws-enabled').value === 'true'
+const enabled = document.getElementById('ws-enabled').value === 'true';
 ['cost', 'tax', 'release'].forEach(function (key) {
 const el = document.getElementById('ws-req-' + key)
 if (!el) return
@@ -1780,6 +1857,80 @@ async function updateKyc() {
  closeModal('modal-user');
  await loadUsers();
 }
+
+// ── Edit User Profile ─────────────────────────────────
+function openEditUserModal() {
+  const u = allUsers.find(x => x.id === selectedUserId);
+  if (!u) return;
+  closeModal('modal-user');
+  document.getElementById('eu-err').style.display = 'none';
+  document.getElementById('eu-ok').style.display = 'none';
+  document.getElementById('eu-name').value = u.full_name || '';
+  document.getElementById('eu-email').value = u.email || '';
+  document.getElementById('eu-account').value = u.account_number || '';
+  document.getElementById('eu-balance').value = Number(u.balance || 0).toFixed(2);
+  document.getElementById('eu-limit').value = Number(u.transaction_limit || 0).toFixed(2);
+  openModal('modal-edit-user');
+}
+
+async function doSaveUserProfile() {
+  const name = document.getElementById('eu-name').value.trim();
+  const email = document.getElementById('eu-email').value.trim();
+  const account = document.getElementById('eu-account').value.trim();
+  const balanceRaw = document.getElementById('eu-balance').value;
+  const limitRaw = document.getElementById('eu-limit').value;
+  if (!name) { showAlert('eu-err', 'Name cannot be blank.'); return; }
+  if (!email) { showAlert('eu-err', 'Email cannot be blank.'); return; }
+  const balance = balanceRaw === '' ? null : parseFloat(balanceRaw);
+  const limit = limitRaw === '' ? null : parseFloat(limitRaw);
+  if (balance !== null && (isNaN(balance) || balance < 0)) { showAlert('eu-err', 'Enter a valid balance.'); return; }
+  if (limit !== null && (isNaN(limit) || limit < 0)) { showAlert('eu-err', 'Enter a valid transaction limit.'); return; }
+  setLoading('eu-save-btn', true, 'Saving...');
+  const { error } = await sb.rpc('admin_update_user_profile', {
+    target_uid: selectedUserId,
+    p_full_name: name,
+    p_email: email,
+    p_account_number: account || null,
+    p_balance: balance,
+    p_transaction_limit: limit
+  });
+  setLoading('eu-save-btn', false, 'Save Changes');
+  if (error) { showAlert('eu-err', error.message); return; }
+  document.getElementById('eu-ok').textContent = '✅ Profile updated.';
+  document.getElementById('eu-ok').style.display = 'block';
+  await loadUsers();
+  await loadStats();
+  setTimeout(() => closeModal('modal-edit-user'), 900);
+}
+
+// ── Delete User (permanent) ───────────────────────────
+function openDeleteUserConfirm() {
+  const u = allUsers.find(x => x.id === selectedUserId);
+  if (!u) return;
+  closeModal('modal-user');
+  document.getElementById('du-err').style.display = 'none';
+  document.getElementById('du-name').textContent = u.full_name || u.email;
+  document.getElementById('du-confirm-input').value = '';
+  document.getElementById('du-confirm-btn').disabled = true;
+  openModal('modal-delete-user');
+}
+
+function duCheckConfirm() {
+  const val = document.getElementById('du-confirm-input').value.trim();
+  document.getElementById('du-confirm-btn').disabled = (val !== 'DELETE');
+}
+
+async function doDeleteUser() {
+  if (document.getElementById('du-confirm-input').value.trim() !== 'DELETE') return;
+  setLoading('du-confirm-btn', true, 'Deleting...');
+  const { error } = await sb.rpc('admin_delete_user', { target_uid: selectedUserId });
+  setLoading('du-confirm-btn', false, 'Permanently Delete');
+  if (error) { showAlert('du-err', error.message); return; }
+  closeModal('modal-delete-user');
+  selectedUserId = null;
+  await loadUsers();
+  await loadStats();
+}
 // ── Fund Operations ───────────────────────────────────
 function openFundModal() { closeModal('modal-user'); document.getElementById('credit-amount').value=''; document.getElementById('credit-reason').value=''; document.getElementById('credit-err').style.display='none'; openModal('modal-credit'); }
 function openHoldModal() {
@@ -1816,12 +1967,14 @@ async function openTxnHistory() {
   const el = document.getElementById('txn-history-body');
   if (!txns || !txns.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No transactions yet.</div></div>'; }
   else {
-    el.innerHTML = `<div class="overflow-x"><table class="tbl"><thead><tr><th>Type</th><th>Amount</th><th>Reason</th><th>Status</th><th>Date</th></tr></thead><tbody>` +
-      txns.map(t => `<tr><td><span class="badge badge-${t.type}">${t.type}</span></td><td style="font-weight:700;color:${t.type==='credit'?'#4ade80':t.type==='hold'?'#fbbf24':'#60a5fa'}">$${Number(t.amount).toFixed(2)}</td><td style="max-width:180px;white-space:normal">${t.description||'—'}</td><td><span class="badge badge-${t.status}">${t.status}</span></td><td>${new Date(t.created_at).toLocaleDateString()}</td></tr>`).join('') +
+    txnHistoryCache = txns;
+    el.innerHTML = `<div class="overflow-x"><table class="tbl"><thead><tr><th>Type</th><th>Amount</th><th>Reason</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>` +
+      txns.map(t => `<tr><td><span class="badge badge-${t.type}">${t.type}</span></td><td style="font-weight:700;color:${t.type==='credit'?'#4ade80':t.type==='hold'?'#fbbf24':'#60a5fa'}">$${Number(t.amount).toFixed(2)}</td><td style="max-width:180px;white-space:normal">${t.description||'—'}</td><td><span class="badge badge-${t.status}">${t.status}</span></td><td>${new Date(t.created_at).toLocaleDateString()}</td><td><button type="button" class="btn btn-ghost btn-sm" onclick="openEditTxnModal('${t.id}','history')">✏️</button></td></tr>`).join('') +
       '</tbody></table></div>';
   }
   openModal('modal-txn-history');
 }
+let txnHistoryCache = [];
 
 async function doCredit() {
   const amount = parseFloat(document.getElementById('credit-amount').value);
@@ -2144,7 +2297,7 @@ function renderTxns(txns) {
   const users = {};
   allUsers.forEach(u => users[u.id] = u.email);
   const tb = document.getElementById('txns-tbody');
-  if (!txns.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">No transactions</div></div></td></tr>'; return; }
+  if (!txns.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">No transactions</div></div></td></tr>'; return; }
   tb.innerHTML = txns.map(t => `
     <tr>
       <td>${users[t.user_id]||t.user_id.substring(0,8)}</td>
@@ -2153,6 +2306,7 @@ function renderTxns(txns) {
       <td style="max-width:200px;white-space:normal;font-size:12px">${t.description||'—'}</td>
       <td><span class="badge badge-${t.status}">${t.status}</span></td>
       <td>${new Date(t.created_at).toLocaleDateString()}</td>
+      <td><button type="button" class="btn btn-ghost btn-sm" onclick="openEditTxnModal('${t.id}','all')">✏️ Edit</button></td>
     </tr>`).join('');
 }
 
@@ -2161,6 +2315,53 @@ function filterTxns() {
   const users = {};
   allUsers.forEach(u => users[u.id] = u.email);
   renderTxns(allTxns.filter(t => (t.description||'').toLowerCase().includes(q) || (users[t.user_id]||'').toLowerCase().includes(q) || t.type.includes(q)));
+}
+
+// ── Edit Transaction ──────────────────────────────────
+let etCurrentId = null;
+let etSource = 'all';
+function openEditTxnModal(txnId, source) {
+  etCurrentId = txnId;
+  etSource = source || 'all';
+  const pool = etSource === 'history' ? txnHistoryCache : allTxns;
+  const t = pool.find(x => x.id === txnId);
+  if (!t) return;
+  document.getElementById('et-err').style.display = 'none';
+  document.getElementById('et-ok').style.display = 'none';
+  document.getElementById('et-status').value = t.status || 'pending';
+  document.getElementById('et-amount').value = Number(t.amount || 0).toFixed(2);
+  document.getElementById('et-desc').value = t.description || '';
+  const d = new Date(t.created_at);
+  const pad = n => String(n).padStart(2, '0');
+  const localVal = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  document.getElementById('et-date').value = localVal;
+  openModal('modal-edit-txn');
+}
+
+async function doSaveTxn() {
+  if (!etCurrentId) return;
+  const status = document.getElementById('et-status').value;
+  const amountRaw = document.getElementById('et-amount').value;
+  const dateRaw = document.getElementById('et-date').value;
+  const desc = document.getElementById('et-desc').value.trim();
+  const amount = amountRaw === '' ? null : parseFloat(amountRaw);
+  if (amount !== null && isNaN(amount)) { showAlert('et-err', 'Enter a valid amount.'); return; }
+  const isoDate = dateRaw ? new Date(dateRaw).toISOString() : null;
+  setLoading('et-save-btn', true, 'Saving...');
+  const { error } = await sb.rpc('admin_update_transaction', {
+    target_id: etCurrentId,
+    p_status: status,
+    p_amount: amount,
+    p_created_at: isoDate,
+    p_description: desc
+  });
+  setLoading('et-save-btn', false, 'Save Changes');
+  if (error) { showAlert('et-err', error.message); return; }
+  closeModal('modal-edit-txn');
+  await loadUsers();
+  await loadStats();
+  if (etSource === 'history') { await openTxnHistory(); }
+  else { await loadTxns(); }
 }
 
 // ── UI Helpers ────────────────────────────────────────
