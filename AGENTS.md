@@ -559,3 +559,17 @@ this snapshot, so nodejs_22 genuinely does not exist there — this wasn't a
 transient issue. Fixed nixpacks.toml to request nodejs_20 instead. serve.js
 uses only long-stable core Node APIs (http, fs, path, url; no fetch or other
 Node-22-only globals), so Node 20 runs it identically.
+
+## serve.js Supabase mode: browser-direct by default (2026-09-09)
+The old `/supa` proxy (and its per-request HTML rewrite) caused production logins
+to hang on "Signing in..." / return HTML for `JSON.parse` errors, because Railway's
+egress IPs are blocked by Cloudflare for `hmmtcnklfpqjoumwdcoj.supabase.co`
+(403 "DNS points to prohibited IP"). Fixed in `serve.js`: **browser-direct is now
+the default** - served HTML keeps the committed hosted Supabase URL straight,so each
+visitor's browser calls the hosted project directly (CORS echoes any Origin; no new
+credentials needed;the anon/publishable key is already public+committed). The `/supa`
+proxy is still fully wired and becomes active only when `SUPABASE_API_URL` is set
+(self-hosted stack)or `SUPABASE_PROXY=enabled`. Verified live on `benfinbank.com`:
+wrong-creds login POST -> `400 {"code":400,"error_code":"invalid_credentials","msg":
+"Invalid login credentials"}` with `access-control-allow-origin` echoing the request
+Origin.
