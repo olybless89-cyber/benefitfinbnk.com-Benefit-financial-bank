@@ -1,18 +1,19 @@
 #!/usr/bin/env node
-// Self-contained Benefit Financial Bank server (no npm deps, no PHP).
+// Self-contained Benefit Financial Bank server (no npm deps, no PHP).)
 //
 // - Serves the static site from public/ with the clean-URL rewrites from
-//   vercel.json (/login -> /login.html, /admin -> /admin.html, etc.).
-// - Rewrites every served .html page at request time so the embedded Supabase
-//   client points at the /supa proxy below (not the hosted project), using the
-//   local stack's anon key.
-// - Proxies /supa/* -> the local self-hosted Supabase API (GoTrue + PostgREST
-//   + storage) so auth, REST, and storage calls work from the browser.
+//   vercel.json (/login -> /login.html, /admin -> /admin.html,, etc.).
+// - Browser-direct by default: pages call the hosted Supabase project straight from
+//   each visitor browser (CORS is open on the project), avoiding server-egress
+//   edge blocks. /supa/*is still proxied when SUPABASE_API_URL is set (a
+//   self-hosted stack)or SUPABASE_PROXY=enabled — in that mode pages are
+//   rewritten so the embedded client points at /supa on this origin,and requests
+//   forward over this server outbound connection (GoTrue + PostgREST + storage).
 //
 // Usage:  node serve.js            (port from PORT env, default 12000)
 //
-// Self-hosted Supabase endpoints come from SUPABASE_API_URL (default
-// http://127.0.0.1:54321) and the anon key from SUPABASE_ANON_KEY.
+// Self-hosted Supabase endpoints come from SUPABASE_API_URL (default:the hosted
+// project),and the anon key from SUPABASE_ANON_KEY.
 
 'use strict';
 const http = require('http');
@@ -22,7 +23,22 @@ const url = require('url');
 
 const PUBLIC = path.resolve(__dirname, 'public');
 const PORT = Number(process.env.PORT || 12000);
-const SUPABASE_API_URL = (process.env.SUPABASE_API_URL || 'https://hmmtcnklfpqjoumwdcoj.supabase.co').replace(/\/$/, '');
+
+// The hosted project values embedded in the committed HTML.
+const HOSTED_URL = 'https://hmmtcnklfpqjoumwdcoj.supabase.co';
+const HOSTED_KEY = 'sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C';
+
+// Browser-direct default: pages call the hosted project straight from the visitor's
+// browser — CORS is open on it, and this avoids proxying through the server's egress
+// (which Cloudflare blocks for some cloud providers, e.g. Railway's IP ranges).
+// Set SUPABASE_API_URL (a self-hosted/alternate stack,)or SUPABASE_PROXY=enabled
+// to force the /supa proxy below instead — needed when the upstream origin can't be
+// reached directly by visitors' browsers (self-hosted local stacks etc.).
+const PROXY_ENABLED = (process.env.SUPABASE_API_URL ? true : false)
+  || process.env.SUPABASE_PROXY === 'enabled';
+const SUPABASE_API_URL = (PROXY_ENABLED
+  ? (process.env.SUPABASE_API_URL || HOSTED_URL.replace(/\/$/, ''))
+  : HOSTED_URL);
 
 // Anon key for the default hosted project (public key embedded in served HTML).
 // Override with SUPABASE_ANON_KEY when running against a self-hosted stack whose
@@ -30,11 +46,7 @@ const SUPABASE_API_URL = (process.env.SUPABASE_API_URL || 'https://hmmtcnklfpqjo
 const LOCAL_ANON_KEY = process.env.SUPABASE_ANON_KEY
   || 'sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C';
 
-// The hosted project values embedded in the committed HTML. We replace these
-// at serve time so the browser talks to the /supa proxy instead.
-const HOSTED_URL = 'https://hmmtcnklfpqjoumwdcoj.supabase.co';
-const HOSTED_KEY = 'sb_publishable_fidyxSk8eEyVTpM_JCMjSA_xz4OQ6_C';
-
+// MIME types for static assets.
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -101,18 +113,22 @@ function resolveFile(reqPath) {
 }
 
 function rewriteHtml(content, origin) {
-  // The Supabase JS SDK rejects relative URLs (it enforces ^https?://), so we
-  // must hand it an absolute URL. Build it from the request's own origin so it
-  // resolves to the /supa proxy on whatever host/proxy serves the site.
+  // The Supabase JS SDK rejects relative URLs:
+  // it enforces ^https?://, so the URL passed to createClient must be absolute.
+  // By default we leave the committed HOSTED_URL intact (browser-direct mode):
+  // pages talk straight to the hosted project from the visitor browser, bypassing
+  // this server egress. When PROXY_ENABLED we rewrite it to /supa on this origin,
+  // routing every Supabase call through the proxy below (self-hosted/alternate stack).
   const supaUrl = origin + '/supa';
-  // Serve the Supabase JS SDK from a local vendored copy so the page does not
-  // depend on an external CDN (which may be unreachable from the browser).
+  // Serve the Supabase JS SDK from a local vendored copy so no CDN dependency.
   const cdnSdk = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
   const localSdk = '/vendor/supabase.js';
-  return content
-    .split(HOSTED_URL).join(supaUrl)
-    .split(HOSTED_KEY).join(LOCAL_ANON_KEY)
-    .split(cdnSdk).join(localSdk);
+  let out = content;
+  if (PROXY_ENABLED) {
+    out = out.replace(HOSTED_URL, supaUrl);
+    out = out.replace(HOSTED_KEY, LOCAL_ANON_KEY);
+  }
+  return out.replace(cdnSdk, localSdk);
 }
 
 function serveStatic(req, res, reqPath) {
